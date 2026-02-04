@@ -4,6 +4,41 @@ import re
 from pathlib import Path
 import fitz  # PyMuPDF
 
+
+# pip install presidio-analyzer presidio-anonymizer spacy
+# python -m spacy download en_core_web_lg
+
+from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer.nlp_engine import NlpEngineProvider
+
+def build_presidio():
+    provider = NlpEngineProvider(
+        nlp_configuration={
+            "nlp_engine_name": "spacy",
+            "models": [{"lang_code": "en", "model_name": "en_core_web_lg"}],
+        }
+    )
+    nlp_engine = provider.create_engine()
+    return AnalyzerEngine(nlp_engine=nlp_engine)
+
+ANALYZER = build_presidio()
+
+DEFAULT_ENTITIES = [
+    "PERSON",
+    "EMAIL_ADDRESS",
+    "PHONE_NUMBER",
+    "CREDIT_CARD",
+    "US_SSN",
+    "DATE_TIME",
+    "LOCATION",
+]
+
+def detect_pii_spans(text: str, entities=DEFAULT_ENTITIES, min_score=0.6):
+    results = ANALYZER.analyze(text=text, language="en", entities=entities)
+    # results: start, end, entity_type, score ...
+    return [r for r in results if r.score >= min_score]
+
+
 '''
 25. Personally identifiable information (PII) redaction from text documents (from Ready Tensor)
 Developing a system for personally identifiable information (PII) redaction involves implementing
@@ -155,7 +190,7 @@ def _find_name_rects_in_line(line_words, target_lower: str):
 
 if __name__ == "__main__":
     input_pdf="pretend_redaction_test.pdf"
-    output_pdf= input_pdf.strip(".pdf")+"_REDACTED.pdf"
+    output_pdf= "output/"+input_pdf.strip(".pdf")+"_REDACTED.pdf"
     stats = redact_pdf_names(
         input_pdf= input_pdf,
         output_pdf= output_pdf,
@@ -168,7 +203,7 @@ if __name__ == "__main__":
     print("Page count:", stats['pages'])
 
     input_pdf="UMNwriteup.pdf"
-    output_pdf= input_pdf.strip(".pdf")+"_REDACTED.pdf"
+    output_pdf= "output/"+input_pdf.strip(".pdf")+"_REDACTED.pdf"
     stats = redact_pdf_names(
         input_pdf= input_pdf,
         output_pdf= output_pdf,
