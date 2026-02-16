@@ -1,2 +1,6 @@
 pymupdf
-presidio-analyzer presidio-anonymizer spacy
+presidio-analyzer 
+presidio-anonymizer 
+spacy
+
+python=3.13
