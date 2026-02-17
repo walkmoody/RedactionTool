@@ -48,7 +48,80 @@ DEFAULT_ENTITIES = [
     "LOCATION",
 ]
 
-def detect_pii_spans(text: str, entities=DEFAULT_ENTITIES, min_score=0.6):
+ALLOWLIST_EXACT = {
+    # words/phrases you never want redacted
+    "inc", "llc", "ltd",
+    "university", "department",
+    "texas", "california", "lubbock",
+    "usa", "united states", "weeks ago", "months ago", "minutes",
+    "date", "date", "date:",  "birth", "birth", "email", 
+}
+
+DATE_PATTERNS = [
+    re.compile(r"^\d{1,2}/\d{1,2}/\d{2,4}$"),              # 6/2/04, 03/14/1982
+    re.compile(r"^(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\.?$", re.I),
+    re.compile(r"^\d{1,2},?$"),                             # day: 2 or 2,
+    re.compile(r"^\d{4}$"),                                 # year: 2024
+]
+
+ALLOWLIST_REGEX = [
+    r"^\d{4}$",          # allow years like 2024
+]
+
+def should_keep_term(term: str) -> bool:
+    t = (term or "").strip()
+    if not t:
+        return False
+    # Don't redact 1-letter tokens (A, B, C...)
+    if len(t) == 1 and t.isalpha():
+        return False
+    return True
+
+
+def is_allowlisted(s: str) -> bool:
+    s = (s or "").strip()
+    if not s:
+        return False
+    s_norm = re.sub(r"\s+", " ", s).lower()
+
+    if s_norm in {x.lower() for x in ALLOWLIST_EXACT}:
+        print("In allow list:", s_norm)
+        return True
+
+    for pat in ALLOWLIST_REGEX:
+        if re.fullmatch(pat, s, flags=re.IGNORECASE):
+            
+            return True
+
+    return False
+
+def split_and_filter_allowlisted(snippet: str) -> list[str]:
+    s = re.sub(r"\s+", " ", (snippet or "")).strip()
+    if not s:
+        return []
+
+    parts = s.split()
+    kept = []
+    for p in parts:
+        p_clean = re.sub(r"^[^\w]+|[^\w]+$", "", p).strip()
+        if not p_clean:
+            continue
+        if is_allowlisted(p_clean):
+            continue
+        kept.append(p_clean)
+
+    # If we removed something (like Date) but still have meaningful parts, use those
+    if kept and (len(kept) != len(parts)):
+        return kept
+
+    return [s]
+
+def _norm_token(s: str) -> str:
+    # strip leading/trailing punctuation like commas, periods, quotes, etc.
+    return re.sub(r"^[^\w]+|[^\w]+$", "", (s or "")).lower()
+
+
+def detect_pii_spans(text: str, entities=DEFAULT_ENTITIES, min_score=0.85):
     results = ANALYZER.analyze(text=text, language="en", entities=entities)
     # results: start, end, entity_type, score ...
     return [r for r in results if r.score >= min_score]
@@ -78,10 +151,7 @@ def extract_pii_terms_from_pdf(
     min_score=0.6,
     max_term_len=80,
 ) -> list[str]:
-    """
-    Returns a de-duped list of literal strings (snippets) found by Presidio in the PDF text.
-    These strings are intended to be passed into page.search_for(...) redaction.
-    """
+
     input_pdf = Path(input_pdf)
     doc = fitz.open(str(input_pdf))
 
@@ -91,23 +161,31 @@ def extract_pii_terms_from_pdf(
         results = detect_pii_spans(page_text, entities=entities, min_score=min_score)
 
         for r in results:
-            snippet = page_text[r.start:r.end]
+            raw = page_text[r.start:r.end]
 
-            # normalize whitespace so it matches PDF search better
-            snippet = re.sub(r"\s+", " ", snippet).strip()
+            raw = re.sub(r"\s+", " ", raw).strip()
 
-            # guardrails: skip empty/huge spans
-            if not snippet or len(snippet) > max_term_len:
+            if not raw or len(raw) > max_term_len:
                 continue
 
-            terms.append(snippet)
+            kept = []
+            for token in raw.split():
+                clean = re.sub(r"^[^\w]+|[^\w]+$", "", token).strip()
+                if not clean:
+                    continue
+                if is_allowlisted(clean):
+                    continue
+                if not should_keep_term(clean):
+                    continue
+                kept.append(clean)
+         
+            terms.extend(kept)
 
-            # OPTIONAL: if it's a PERSON, also add first/last token variants
-            if r.entity_type == "PERSON":
-                parts = snippet.split()
-                if len(parts) >= 2:
-                    terms.append(parts[0])
-                    terms.append(parts[-1])
+
+            if r.entity_type == "PERSON" and len(kept) >= 2:
+                # join first two tokens as a "full name" candidate
+                terms.append(f"{kept[0]} {kept[1]}")
+
 
     doc.close()
     return _normalize_names(terms)
@@ -143,6 +221,7 @@ def redact_pdf_names(
         raise FileNotFoundError(f"Input PDF not found: {input_pdf}")
 
     names = _normalize_names(names)
+    names = [n for n in names if not is_allowlisted(n)]
     if not names:
         raise ValueError("No names provided to redact.")
 
@@ -226,23 +305,28 @@ def _find_name_rects_in_line(line_words, target_lower: str):
     Returns list of fitz.Rect covering matched sequences.
     """
 
-    ws = [(w[4].strip(), fitz.Rect(w[0], w[1], w[2], w[3])) for w in line_words]
-    lowers = [w.lower() for w, _ in ws]
+    tokens_and_rects = []
+    cleaned = []
 
-    target_tokens = re.split(r"\s+", target_lower.strip())
+    for w in line_words:
+        raw = (w[4] or "").strip()
+        rect = fitz.Rect(w[0], w[1], w[2], w[3])
+        tokens_and_rects.append((raw, rect))
+        cleaned.append(_norm_token(raw))
+
+    target_tokens = [t for t in (_norm_token(x) for x in re.split(r"\s+", target_lower.strip())) if t]
     if not target_tokens:
         return []
 
     rects = []
     n = len(target_tokens)
 
-    for i in range(0, len(lowers) - n + 1):
-        window = lowers[i : i + n]
+    for i in range(0, len(cleaned) - n + 1):
+        window = cleaned[i : i + n]
         if window == target_tokens:
-            # Union rectangles across the token span
-            rr = ws[i][1]
+            rr = tokens_and_rects[i][1]
             for j in range(i + 1, i + n):
-                rr |= ws[j][1]
+                rr |= tokens_and_rects[j][1]
             rects.append(rr)
 
     return rects
@@ -267,6 +351,9 @@ if __name__ == "__main__":
             entities=DEFAULT_ENTITIES,
             min_score=0.6,
         )
+        print("Contains Rogers term?:", any("rogers" in t.lower() for t in pii_terms))
+        print("Rogers-like terms:", [t for t in pii_terms if "rogers" in t.lower()])
+
 
         if not pii_terms:
 
