@@ -47,6 +47,12 @@ DEFAULT_ENTITIES = [
     "AGE",
     "LOCATION",
 ]
+'''
+['US_PASSPORT', 'CREDIT_CARD', 'US_ITIN', 'EMAIL_ADDRESS', 'IBAN_CODE', 
+'ORGANIZATION', 'ID', 'PERSON', 'US_SSN', 'AGE', 'DATE_TIME', 'US_BANK_NUMBER', 
+'MEDICAL_LICENSE', 'CRYPTO', 'LOCATION', 'URL', 'PHONE_NUMBER', 'UK_NHS', 
+'US_DRIVER_LICENSE', 'NRP', 'EMAIL', 'IP_ADDRESS']
+'''
 
 ALLOWLIST_EXACT = {
     # words/phrases you never want redacted
@@ -123,7 +129,7 @@ def _norm_token(s: str) -> str:
 
 def detect_pii_spans(text: str, entities=DEFAULT_ENTITIES, min_score=0.85):
     results = ANALYZER.analyze(text=text, language="en", entities=entities)
-    # results: start, end, entity_type, score ...
+
     return [r for r in results if r.score >= min_score]
 
 def print_pii(results, text):
@@ -379,3 +385,4 @@ if __name__ == "__main__":
                 print(f"  {name}: {count}")
         else:
             print("No visual matches found (possible layout mismatch)")
+    
