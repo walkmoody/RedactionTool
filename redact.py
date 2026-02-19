@@ -23,18 +23,9 @@ straightforward method commonly used in printed documents.
 
 from presidio_analyzer import AnalyzerEngine
 from presidio_analyzer.nlp_engine import NlpEngineProvider
+from presidio_analyzer import PatternRecognizer, Pattern
 
-def build_presidio():
-    provider = NlpEngineProvider(
-        nlp_configuration={
-            "nlp_engine_name": "spacy",
-            "models": [{"lang_code": "en", "model_name": "en_core_web_lg"}],
-        }
-    )
-    nlp_engine = provider.create_engine()
-    return AnalyzerEngine(nlp_engine=nlp_engine)
-
-ANALYZER = build_presidio()
+############################################################################################
 
 DEFAULT_ENTITIES = [
     "PERSON",
@@ -46,7 +37,10 @@ DEFAULT_ENTITIES = [
     "ZIP_CODE",
     "AGE",
     "LOCATION",
+    "US_ADDRESS",
+    "STRICT_DATE"
 ]
+
 '''
 ['US_PASSPORT', 'CREDIT_CARD', 'US_ITIN', 'EMAIL_ADDRESS', 'IBAN_CODE', 
 'ORGANIZATION', 'ID', 'PERSON', 'US_SSN', 'AGE', 'DATE_TIME', 'US_BANK_NUMBER', 
@@ -54,13 +48,81 @@ DEFAULT_ENTITIES = [
 'US_DRIVER_LICENSE', 'NRP', 'EMAIL', 'IP_ADDRESS']
 '''
 
-ALLOWLIST_EXACT = {
-    # words/phrases you never want redacted
+def add_strict_date_recognizer(analyzer: AnalyzerEngine) -> None:
+    date_patterns = [
+        Pattern(
+            name="mm_dd_yyyy",
+            score=0.95,
+            regex=r"\b\d{1,2}/\d{1,2}/\d{2,4}\b",
+        ),
+        Pattern(
+            name="iso_date",
+            score=0.95,
+            regex=r"\b\d{4}-\d{2}-\d{2}\b",
+        ),
+        Pattern(
+            name="month_day_year",
+            score=0.95,
+            regex=r"\b(?:Jan|January|Feb|February|Mar|March|Apr|April|May|Jun|June|Jul|July|Aug|August|Sep|September|Oct|October|Nov|November|Dec|December)\s+\d{1,2},?\s+\d{4}\b",
+        ),
+        Pattern(
+            name="year",
+            score=0.95,
+            regex=r"\b(?:19|20)\d{2}\b",
+        ),
+    ]
+    recognizer = PatternRecognizer(
+        supported_entity="STRICT_DATE",
+        patterns=date_patterns,
+    )
+
+    analyzer.registry.add_recognizer(recognizer)
+
+
+def add_us_address_recognizer(analyzer: AnalyzerEngine) -> None:
+
+    us_address_patterns = [
+        Pattern(
+            name="us_address_full",
+            score=0.85,
+            regex=r"\b\d{1,6}(?:\s+[\w.'-]+){1,6}\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace)\b(?:\s*,?\s*(?:Apt|Apartment|Unit|Ste|Suite|#)\s*\w+)?(?:\s*,?\s*[A-Za-z .'-]{2,30})?(?:\s*,?\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))?(?:\s+\d{5}(?:-\d{4})?)?\b",
+        ),
+    ]
+    recognizer = PatternRecognizer(
+        supported_entity="US_ADDRESS",
+        patterns=us_address_patterns,
+        context=["address", "st", "street", "ave", "road", "blvd", "apt", "suite", "zip"],
+    )
+    analyzer.registry.add_recognizer(recognizer)
+
+
+def build_presidio():
+    provider = NlpEngineProvider(
+        nlp_configuration={
+            "nlp_engine_name": "spacy",
+            "models": [{"lang_code": "en", "model_name": "en_core_web_lg"}],
+        }
+    )
+    nlp_engine = provider.create_engine()
+    analyzer = AnalyzerEngine(nlp_engine=nlp_engine)
+
+    add_us_address_recognizer(analyzer)
+    add_strict_date_recognizer(analyzer)
+
+    return analyzer
+
+ANALYZER = build_presidio()
+
+############################################################################################
+#allow list
+
+ALLOWLIST_EXACT = {     # words/phrases you never want redacted
     "inc", "llc", "ltd",
     "university", "department",
     "texas", "california", "lubbock",
     "usa", "united states", "weeks ago", "months ago", "minutes",
-    "date", "date", "date:",  "birth", "birth", "email", 
+    "date", "date", "date:",  "birth", "birth", "email", "biographies",
+    "dyspnea", "epigastric", "lumbosacral", "lumbo", "musculoskeletal"
 }
 
 DATE_PATTERNS = [
@@ -83,7 +145,6 @@ def should_keep_term(term: str) -> bool:
         return False
     return True
 
-
 def is_allowlisted(s: str) -> bool:
     s = (s or "").strip()
     if not s:
@@ -91,14 +152,12 @@ def is_allowlisted(s: str) -> bool:
     s_norm = re.sub(r"\s+", " ", s).lower()
 
     if s_norm in {x.lower() for x in ALLOWLIST_EXACT}:
-        print("In allow list:", s_norm)
         return True
-
+    """
     for pat in ALLOWLIST_REGEX:
         if re.fullmatch(pat, s, flags=re.IGNORECASE):
-            
             return True
-
+    """
     return False
 
 def split_and_filter_allowlisted(snippet: str) -> list[str]:
@@ -122,15 +181,21 @@ def split_and_filter_allowlisted(snippet: str) -> list[str]:
 
     return [s]
 
+############################################################################################
+
 def _norm_token(s: str) -> str:
     # strip leading/trailing punctuation like commas, periods, quotes, etc.
     return re.sub(r"^[^\w]+|[^\w]+$", "", (s or "")).lower()
 
+def detect_pii_spans(text: str, entities=DEFAULT_ENTITIES, min_score=0.8):
+    results = ANALYZER.analyze(text=text, language="en")
 
-def detect_pii_spans(text: str, entities=DEFAULT_ENTITIES, min_score=0.85):
-    results = ANALYZER.analyze(text=text, language="en", entities=entities)
-
-    return [r for r in results if r.score >= min_score]
+    wanted = set(entities)
+    kept = []
+    for r in results:
+        if r.entity_type in wanted and r.score >= min_score:
+            kept.append(r)
+    return kept
 
 def print_pii(results, text):
     if not results:
@@ -165,13 +230,26 @@ def extract_pii_terms_from_pdf(
     for page in doc:
         page_text = page.get_text("text") or ""
         results = detect_pii_spans(page_text, entities=entities, min_score=min_score)
-
+    
         for r in results:
+            
             raw = page_text[r.start:r.end]
 
             raw = re.sub(r"\s+", " ", raw).strip()
 
             if not raw or len(raw) > max_term_len:
+                continue
+
+            if r.entity_type == "STRICT_DATE":
+                if not is_allowlisted(raw):
+                    terms.append(raw)
+                continue
+
+        
+            if r.entity_type == "US_ADDRESS":
+                addr_tokens = [_norm_token(t) for t in raw.split() if _norm_token(t)]
+                if addr_tokens and not is_allowlisted(raw):
+                    terms.append(" ".join(addr_tokens))
                 continue
 
             kept = []
@@ -210,6 +288,7 @@ def _normalize_names(names: list[str]) -> list[str]:
             out.append(n)
     return out
 
+############################################################################################
 
 def redact_pdf_names(
     input_pdf: str | Path,
@@ -337,6 +416,8 @@ def _find_name_rects_in_line(line_words, target_lower: str):
 
     return rects
 
+############################################################################################
+
 if __name__ == "__main__":
     INPUT_DIR = Path("input")
     OUTPUT_DIR = Path("output")
@@ -357,9 +438,6 @@ if __name__ == "__main__":
             entities=DEFAULT_ENTITIES,
             min_score=0.6,
         )
-        print("Contains Rogers term?:", any("rogers" in t.lower() for t in pii_terms))
-        print("Rogers-like terms:", [t for t in pii_terms if "rogers" in t.lower()])
-
 
         if not pii_terms:
 
