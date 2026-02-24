@@ -38,7 +38,8 @@ DEFAULT_ENTITIES = [
     "AGE",
     "LOCATION",
     "US_ADDRESS",
-    "STRICT_DATE"
+    "STRICT_DATE",
+    "MEDICAL_RECORD_NUMBER",
 ]
 
 '''
@@ -66,14 +67,37 @@ def add_strict_date_recognizer(analyzer: AnalyzerEngine) -> None:
             regex=r"\b(?:Jan|January|Feb|February|Mar|March|Apr|April|May|Jun|June|Jul|July|Aug|August|Sep|September|Oct|October|Nov|November|Dec|December)\s+\d{1,2},?\s+\d{4}\b",
         ),
         Pattern(
-            name="year",
+            name="month.year",
             score=0.95,
-            regex=r"\b(?:19|20)\d{2}\b",
+            regex=r"\b(?:Jan|January|Feb|February|Mar|March|Apr|April|May|Jun|June|Jul|July|Aug|August|Sep|September|Oct|October|Nov|November|Dec|December)\.?\s+\d{4}\b",
         ),
     ]
     recognizer = PatternRecognizer(
         supported_entity="STRICT_DATE",
         patterns=date_patterns,
+    )
+
+    analyzer.registry.add_recognizer(recognizer)
+
+def add_mrn_recognizer(analyzer: AnalyzerEngine) -> None:
+    mrn_patterns = [
+        Pattern(
+            name="mrn_with_label",
+            score=0.99,
+            regex=r"\bMRN[-:\s]?\d{4,10}\b",
+        ),
+
+        Pattern(
+            name="generic_medical_id",
+            score=0.85,
+            regex=r"\b\d{6,10}\b",
+        ),
+    ]
+
+    recognizer = PatternRecognizer(
+        supported_entity="MEDICAL_RECORD_NUMBER",
+        patterns=mrn_patterns,
+        context=["medical record", "mrn", "record number"],
     )
 
     analyzer.registry.add_recognizer(recognizer)
@@ -85,13 +109,66 @@ def add_us_address_recognizer(analyzer: AnalyzerEngine) -> None:
         Pattern(
             name="us_address_full",
             score=0.85,
-            regex=r"\b\d{1,6}(?:\s+[\w.'-]+){1,6}\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace)\b(?:\s*,?\s*(?:Apt|Apartment|Unit|Ste|Suite|#)\s*\w+)?(?:\s*,?\s*[A-Za-z .'-]{2,30})?(?:\s*,?\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))?(?:\s+\d{5}(?:-\d{4})?)?\b",
+            regex=r"\b\d{1,6}(?:\s+[\w.'-]+){1,10}\s+(?:St|Street|Square|Hall|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Broadway|Place|Ter|Terrace|Center)\b(?:\s*,?\s*(?:Apt|Apartment|Unit|Ste|Suite|#)\s*\w+)?(?:\s*,?\s*[A-Za-z .'-]{2,30})?(?:\s*,?\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))?(?:\s+\d{5}(?:-\d{4})?)?\b",
+        ),
+        Pattern(
+            name="us_address_numbered_street",
+            score=0.90,
+            regex=r"""
+            \b
+            \d{1,6}                                           # house number
+            (?:\s+(?:N|S|E|W|NE|NW|SE|SW)\.?)?                 # optional direction
+            \s+
+            (?:\d{1,5}(?:st|nd|rd|th)\b|[\w.'-]+)              # street name: 14th OR normal token
+            (?:\s+[\w.'-]+){0,5}                               # remaining street name tokens
+            \s+
+            (?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Broadway|Center|Sq|Square)\.?
+            (?:\s*,?\s*(?:Apt|Apartment|Unit|Ste|Suite|#)\s*[\w-]+)?     # optional unit
+            (?:\s*,?\s*[A-Za-z .'-]{2,30})?                    # optional city
+            (?:\s*,?\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))?  # optional state
+            (?:\s+\d{5}(?:-\d{4})?)?                           # optional ZIP
+            \b
+            """.strip(),
+        ),
+        Pattern(
+            name="us_street_general",
+            score=0.90,
+            regex=r"""
+            \b
+            (?:
+                \d{1,6}(?:\s+(?:N|S|E|W|NE|NW|SE|SW)\.?)?   # house number + optional direction
+                |
+                (?:North|South|East|West|N|S|E|W)\.?        # OR leading direction only
+            )
+            \s+
+            (?:\d{1,5}\s*(?:st|nd|rd|th)\b|[\w.'-]+)        # street name
+            (?:\s+[\w.'-]+){0,4}
+            \s+
+            (?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Broadway|Center|Sq|Square)\.?
+            \b
+            """.strip(),
+        ),
+        Pattern(
+            name="numbered_street_optional_suffix",
+            score=0.95,
+            regex=r"""
+            \b
+            \d{1,6}                                   # house number
+            (?:\s+(?:N|S|E|W|NE|NW|SE|SW)\.?)?         # optional direction
+            \s+
+            (?:\d{1,5}(?:st|nd|rd|th)\b|[\w.'-]+)      # street name (14th OR word)
+            (?:\s+[\w.'-]+){0,3}                       # optional additional words
+            (?:                                         
+                \s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Sq|Square)\.?
+            )?                                          # suffix OPTIONAL
+            \b
+            """.strip(),
         ),
     ]
     recognizer = PatternRecognizer(
         supported_entity="US_ADDRESS",
         patterns=us_address_patterns,
-        context=["address", "st", "street", "ave", "road", "blvd", "apt", "suite", "zip"],
+        context=["address","st", "broadway", "street", "ave", "road", "blvd", "apt", "suite", "zip"],
     )
     analyzer.registry.add_recognizer(recognizer)
 
@@ -108,6 +185,7 @@ def build_presidio():
 
     add_us_address_recognizer(analyzer)
     add_strict_date_recognizer(analyzer)
+    add_mrn_recognizer(analyzer)
 
     return analyzer
 
@@ -122,7 +200,7 @@ ALLOWLIST_EXACT = {     # words/phrases you never want redacted
     "texas", "california", "lubbock",
     "usa", "united states", "weeks ago", "months ago", "minutes",
     "date", "date", "date:",  "birth", "birth", "email", "biographies",
-    "dyspnea", "epigastric", "lumbosacral", "lumbo", "musculoskeletal"
+    "dyspnea", "epigastric", "lumbosacral", "lumbo", "musculoskeletal", "the", "is", "in", "ist",
 }
 
 DATE_PATTERNS = [
@@ -130,10 +208,6 @@ DATE_PATTERNS = [
     re.compile(r"^(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\.?$", re.I),
     re.compile(r"^\d{1,2},?$"),                             # day: 2 or 2,
     re.compile(r"^\d{4}$"),                                 # year: 2024
-]
-
-ALLOWLIST_REGEX = [
-    r"^\d{4}$",          # allow years like 2024
 ]
 
 def should_keep_term(term: str) -> bool:
@@ -153,11 +227,6 @@ def is_allowlisted(s: str) -> bool:
 
     if s_norm in {x.lower() for x in ALLOWLIST_EXACT}:
         return True
-    """
-    for pat in ALLOWLIST_REGEX:
-        if re.fullmatch(pat, s, flags=re.IGNORECASE):
-            return True
-    """
     return False
 
 def split_and_filter_allowlisted(snippet: str) -> list[str]:
@@ -183,20 +252,39 @@ def split_and_filter_allowlisted(snippet: str) -> list[str]:
 
 ############################################################################################
 
+
+_WORD_CH = re.compile(r"[A-Za-z0-9_]")
+
+def is_whole_word_span(text: str, start: int, end: int) -> bool:
+    
+    if start < 0 or end > len(text) or start >= end:
+        return False
+    
+    left_ok = (start == 0) or (not _WORD_CH.match(text[start - 1]))
+    right_ok = (end == len(text)) or (not _WORD_CH.match(text[end]))
+    return left_ok and right_ok
+
 def _norm_token(s: str) -> str:
     # strip leading/trailing punctuation like commas, periods, quotes, etc.
     return re.sub(r"^[^\w]+|[^\w]+$", "", (s or "")).lower()
 
-def detect_pii_spans(text: str, entities=DEFAULT_ENTITIES, min_score=0.8):
-    results = ANALYZER.analyze(text=text, language="en")
+ENTITY_MIN_SCORE = {
+    "PERSON": 0.80,
+    "STRICT_DATE": 0.60,
+    "US_ADDRESS": 0.70,
+    "MEDICAL_RECORD_NUMBER": 0.85,
+}
 
+def detect_pii_spans(text: str, entities=DEFAULT_ENTITIES, default_min=0.85):
+    results = ANALYZER.analyze(text=text, language="en")
     wanted = set(entities)
+
     kept = []
     for r in results:
-        if r.entity_type in wanted and r.score >= min_score:
+        thresh = ENTITY_MIN_SCORE.get(r.entity_type, default_min)
+        if r.entity_type in wanted and r.score >= thresh:
             kept.append(r)
     return kept
-
 def print_pii(results, text):
     if not results:
         print("No PII detected.")
@@ -219,7 +307,7 @@ def extract_pii_terms_from_pdf(
     input_pdf: str | Path,
     *,
     entities=DEFAULT_ENTITIES,
-    min_score=0.6,
+    min_score=0.7,
     max_term_len=80,
 ) -> list[str]:
 
@@ -229,11 +317,14 @@ def extract_pii_terms_from_pdf(
     terms: list[str] = []
     for page in doc:
         page_text = page.get_text("text") or ""
-        results = detect_pii_spans(page_text, entities=entities, min_score=min_score)
-    
+        results = detect_pii_spans(page_text, entities=entities, default_min=min_score)
+       
         for r in results:
             
             raw = page_text[r.start:r.end]
+
+            if not is_whole_word_span(page_text, r.start, r.end):
+                continue    
 
             raw = re.sub(r"\s+", " ", raw).strip()
 
@@ -244,7 +335,6 @@ def extract_pii_terms_from_pdf(
                 if not is_allowlisted(raw):
                     terms.append(raw)
                 continue
-
         
             if r.entity_type == "US_ADDRESS":
                 addr_tokens = [_norm_token(t) for t in raw.split() if _norm_token(t)]
@@ -290,6 +380,19 @@ def _normalize_names(names: list[str]) -> list[str]:
 
 ############################################################################################
 
+def _find_exact_token_rects(page, target: str):
+    t = _norm_token(target)
+    if not t:
+        return []
+
+    rects = []
+    for w in page.get_text("words"):
+        token = _norm_token(w[4])
+        if token == t:
+            rects.append(fitz.Rect(w[0], w[1], w[2], w[3]))
+    return rects
+
+
 def redact_pdf_names(
     input_pdf: str | Path,
     output_pdf: str | Path,
@@ -321,26 +424,25 @@ def redact_pdf_names(
     for page in doc:
         for name in names:
             # Fast path: exact search
-            rects = page.search_for(name)
-            
-            if case_insensitive and not rects:
-                # Word-level scan; joins adjacent words to match multi-word names.
-                words = page.get_text("words")  # (x0,y0,x1,y1,"word", block, line, word_no)
-                # Group by line for more reliable adjacency
+            name = name.strip()
+            if not name:
+                continue
+
+            if " " in name:
+                rects = []
+                words = page.get_text("words")
                 words.sort(key=lambda w: (w[5], w[6], w[7]))
                 target = name.lower()
 
-                # Build per-line strings with mapping back to word rects
                 current_line = None
                 line_words = []
                 for w in words + [None]:
                     if w is None:
-                        # flush
                         if line_words:
                             rects += _find_name_rects_in_line(line_words, target)
                         break
 
-                    line_id = (w[5], w[6])  # (block, line)
+                    line_id = (w[5], w[6])
                     if current_line is None:
                         current_line = line_id
 
@@ -351,9 +453,11 @@ def redact_pdf_names(
 
                     line_words.append(w)
 
-            # Add redaction annotations for each found instance
+            else:
+                rects = _find_exact_token_rects(page, name)
+
             for r in rects:
-                # Expand a tiny bit so the box fully covers glyphs
+                # Expand a tiny bit so the box fully covers text
                 rr = fitz.Rect(r)
                 rr.x0 -= 0.5
                 rr.y0 -= 0.5
@@ -440,12 +544,9 @@ if __name__ == "__main__":
         )
 
         if not pii_terms:
-
             input_pdf.replace(output_pdf)
             continue
-
-        print(f"Detected {len(pii_terms)} unique PII terms")
-
+        
         stats = redact_pdf_names(
             input_pdf=input_pdf,
             output_pdf=output_pdf,
@@ -454,7 +555,6 @@ if __name__ == "__main__":
         )
 
         print("Output file:", stats["output"])
-        print("Pages:", stats["pages"])
         print("Total redactions:", stats["total_matches"])
 
         if stats["names_found"]:
