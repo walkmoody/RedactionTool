@@ -1,6 +1,11 @@
 pymupdf
-presidio-analyzer 
-presidio-anonymizer 
+presidio-analyzer
+presidio-anonymizer
 spacy
+
+# API server
+fastapi
+uvicorn[standard]
+python-multipart
 
 python=3.13

@@ -252,7 +252,6 @@ def split_and_filter_allowlisted(snippet: str) -> list[str]:
 
 ############################################################################################
 
-
 _WORD_CH = re.compile(r"[A-Za-z0-9_]")
 
 def is_whole_word_span(text: str, start: int, end: int) -> bool:
@@ -391,7 +390,6 @@ def _find_exact_token_rects(page, target: str):
         if token == t:
             rects.append(fitz.Rect(w[0], w[1], w[2], w[3]))
     return rects
-
 
 def redact_pdf_names(
     input_pdf: str | Path,
