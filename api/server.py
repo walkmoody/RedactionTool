@@ -19,14 +19,14 @@ from fastapi.responses import FileResponse
 # Ensure project root is on the path so redact.py is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from redactt import DEFAULT_ENTITIES, extract_pii_terms_from_pdf, redact_pdf_names  # noqa: E402
+from redact import DEFAULT_ENTITIES, extract_pii_terms_from_pdf, redact_pdf_names  # noqa: E402
 
 app = FastAPI(title="PII Redaction API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200"],
-    allow_methods=["POST"],
+    allow_origins=["*"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -40,8 +40,12 @@ async def redact(
         default=json.dumps(DEFAULT_ENTITIES),
         description="JSON array of PII entity types to redact",
     ),
+    exclusions: str = Form(
+        default="[]",
+        description="JSON array of names to exclude from redaction",
+    ),
 ) -> FileResponse:
-    # ── Validate file type ────────────────────────────────────────────────
+    print(f"Received file: {file.filename} with entities: {entities}")
     if file.content_type not in ("application/pdf", "application/octet-stream"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
@@ -67,12 +71,39 @@ async def redact(
 
         input_path.write_bytes(await file.read())
 
+        # ── Parse exclusions ──────────────────────────────────────────────
+        try:
+            excluded: list[str] = json.loads(exclusions)
+        except (ValueError, json.JSONDecodeError):
+            excluded = []
+        excluded_lower = set()
+        for e in excluded:
+            e = e.strip().lower()
+            if not e:
+                continue
+            excluded_lower.add(e)
+            for word in e.split():
+                excluded_lower.add(word)
+
         # ── Run redaction ─────────────────────────────────────────────────
         pii_terms = extract_pii_terms_from_pdf(
             input_path,
             entities=selected,
             min_score=0.6,
         )
+
+        import re as _re
+        def _core(t: str) -> str:
+            return _re.sub(r"[^\w\s]", "", t).strip().lower()
+
+        def _is_excluded(t: str) -> bool:
+            core = _core(t)
+            if core in excluded_lower:
+                return True
+            core_words = set(core.split())
+            return bool(core_words & excluded_lower)
+
+        pii_terms = [t for t in pii_terms if not _is_excluded(t)]
 
         if not pii_terms:
             # Nothing to redact — return the original file unchanged
@@ -95,4 +126,5 @@ async def redact(
         media_type="application/pdf",
         filename=f"{stem}_REDACTED.pdf",
         background=None,
+        headers={"Cache-Control": "no-store"},
     )

@@ -1,16 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Sekuya&display=swap');
+
 :host {
     display: block;
     min-height: 100vh;
     background: #06122b;
     color: white;
-    font-family: Arial, sans-serif;
+    font-family: 'Open Sans', sans-serif;
+}
+
+h1 {
+  font-family: 'Sekuya', sans-serif;
 }
 
 /* HEADER */
 header {
     text-align: center;
     padding: 30px;
-    background: #0d1730;
+    background: #162344;
 }
 
 /* HOME */
@@ -21,6 +27,12 @@ header {
     justify-content: center;
     align-items: center;
     gap: 15px;
+    color: #f8fafc;
+    background: linear-gradient(to bottom right, #121b32, #242f49);
+    padding: 40px;
+    margin: 40px;
+    border-radius: 12px;
+    border: 2px dashed rgba(255, 255, 255, 0.3);
 }
 
 /* MAIN */
@@ -56,10 +68,17 @@ header {
 }
 
 .close-btn {
-    background: red;
+    background: rgb(132, 54, 54);
     color: white;
     border: none;
     width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.close-btn:hover {
+    background: rgb(193, 72, 72);
+    border-radius: 8px;
     cursor: pointer;
 }
 
@@ -90,9 +109,33 @@ header {
     background: white;
 }
 
+/* RESPONSIVE */
+@media (max-width: 900px) {
+    #main {
+        flex-direction: column;
+    }
+
+    #leftside {
+        width: 100%;
+        flex-direction: row;
+    }
+
+    .panel {
+        flex: 1;
+    }
+
+    #items {
+        flex-direction: column;
+    }
+
+    .pdf_entry {
+        width: 100%;
+    }
+}
+
 /* BUTTONS */
 .buttons {
-    margin-top: 15px;
+    margin: 15px;
     display: flex;
     justify-content: center;
     gap: 10px;
@@ -102,5 +145,5 @@ header {
 footer {
     text-align: center;
     padding: 20px;
-    background: #0d1730;
+    background: #162344;
 }

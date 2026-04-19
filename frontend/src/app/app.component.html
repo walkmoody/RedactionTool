@@ -12,78 +12,144 @@
 >
 
 <main>
-  <div
-    id="home"
-    *ngIf="files.length === 0"
-    (dragover)="onDragOver($event)"
-    (dragleave)="onDragLeave($event)"
-    (drop)="onDrop($event)"
-  >
-    <p>Drag and drop files here to begin the redaction process</p>
-    <button type="button" (click)="fileInput.click()">Import</button>
-  </div>
+  @if (files().length === 0) {
+    <div id="home-wrapper">
+      <div
+        id="drop-zone"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave($event)"
+        (drop)="onDrop($event)"
+      >
+        <i class="fas fa-shield-alt home-icon"></i>
+        <h2>Secure PII Redaction</h2>
+        <p class="home-sub">Automatically detect and redact sensitive information from your PDFs</p>
+        <button type="button" (click)="fileInput.click()">
+          <i class="fas fa-file-import"></i> Import Files
+        </button>
+        <p class="drop-hint">or drag &amp; drop files here</p>
+      </div>
 
-  <div id="main" *ngIf="files.length > 0">
-    <div id="leftside">
-      <div class="panel">
-        <p class="text">Files</p>
-
-        <div class="scroll-box">
-          <div class="file_content" *ngFor="let fileItem of files; let i = index">
-            <button class="close-btn" type="button" (click)="removeFile(i)">x</button>
-
-            <button class="file_name" type="button" (click)="selectFile(fileItem)">
-              {{ fileItem.file.name }}
-            </button>
+      <div id="home-settings-card">
+        <div class="home-settings-section">
+          <p class="settings-label">Redaction Settings</p>
+          <div class="settings-grid">
+            @for (setting of settings; track setting.key) {
+              <label class="text setting-row" (click)="setting.enabled = !setting.enabled">
+                <i class="fa-regular" [class.fa-square-check]="setting.enabled" [class.fa-square]="!setting.enabled"></i>
+                {{ setting.label }}
+              </label>
+            }
           </div>
         </div>
-      </div>
-
-      <div class="panel">
-        <p class="text">Settings</p>
-
-        <div class="scroll-box">
-          <label class="text setting-row" *ngFor="let setting of settings">
-            <input type="checkbox" [(ngModel)]="setting.enabled" />
-            {{ setting.label }}
-          </label>
+        <div class="home-settings-section">
+          <p class="settings-label">Exclude from Redaction</p>
+          <input
+            class="exclusion-input"
+            type="text"
+            placeholder="e.g. John Smith, Acme Corp (comma separated)"
+            [(ngModel)]="exclusions"
+          />
         </div>
       </div>
     </div>
+  }
 
-    <div id="rightside">
-      <h3 class="text">
-        {{ selectedFile?.file?.name || 'Selected Filename' }}
-      </h3>
+  @if (files().length > 0) {
+    <div id="main">
+      <div id="leftside">
+        <div class="panel">
+          <p class="text">Files</p>
 
-      <div id="items">
-        <div class="pdf_entry">
-          <h4>Before</h4>
-          <iframe
-            class="pdf_viewer"
-            *ngIf="selectedFile"
-            [src]="selectedFile.safePreviewUrl">
-          </iframe>
+          <div class="scroll-box">
+            @for (fileItem of files(); track fileItem.file.name; let i = $index) {
+              <div class="file_content">
+                <button class="close-btn" type="button" (click)="removeFile(i)">
+                  <i class="fas fa-trash"></i>
+                </button>
+                <button class="file_name" type="button" (click)="selectFile(fileItem)">
+                  {{ fileItem.file.name }}
+                </button>
+                <span class="status-icon" [title]="fileItem.status">
+                  @if (fileItem.status === 'loading') { <i class="fas fa-spinner fa-spin"></i> }
+                  @if (fileItem.status === 'done') { <i class="fas fa-check" style="color: #4a8ade"></i> }
+                  @if (fileItem.status === 'error') { <i class="fas fa-times" style="color: #f87171"></i> }
+                </span>
+              </div>
+            }
+          </div>
         </div>
 
-        <div class="pdf_entry">
-          <h4>Output</h4>
-          <iframe
-            class="pdf_viewer"
-            *ngIf="selectedFile"
-            [src]="selectedFile.safeOutputUrl">
-          </iframe>
+        <div class="panel">
+          <p class="text">Settings</p>
+
+          <div class="scroll-box">
+            @for (setting of settings; track setting.key) {
+              <label class="text setting-row" (click)="setting.enabled = !setting.enabled">
+                <i class="fa-regular" [class.fa-square-check]="setting.enabled" [class.fa-square]="!setting.enabled"></i>
+                {{ setting.label }}
+              </label>
+            }
+          </div>
+
+          <p class="text" style="margin-top: 12px;">Exclude from Redaction</p>
+          <input
+            class="exclusion-input"
+            type="text"
+            placeholder="e.g. John Smith, Acme Corp"
+            [(ngModel)]="exclusions"
+          />
         </div>
       </div>
 
-      <div class="buttons">
-        <button type="button" (click)="fileInput.click()">Import More</button>
-        <button type="button" (click)="downloadAllFiles()">Download Files</button>
+      <div id="rightside">
+        <div class="file-nav">
+          <button class="nav-btn nav-btn-left" type="button" (click)="cycleFile(-1)" [disabled]="files().length <= 1">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <h3 class="text">{{ selectedFile()?.file?.name || 'Selected Filename' }}</h3>
+          <button class="nav-btn nav-btn-right" type="button" (click)="cycleFile(1)" [disabled]="files().length <= 1">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+
+        <div id="items">
+          <div class="pdf_entry">
+            <h4>Before</h4>
+            @if (selectedFile()) {
+              <iframe class="pdf_viewer" [src]="selectedFile()!.safePreviewUrl"></iframe>
+            }
+          </div>
+
+          <div class="pdf_entry">
+            <h4>Output</h4>
+            @if (selectedFile()?.status === 'loading') {
+              <div class="pdf-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Redacting...</p>
+              </div>
+            }
+            @if (selectedFile()?.status === 'error') {
+              <div class="pdf-loading">
+                <i class="fas fa-times" style="color: #f87171"></i>
+                <p>Redaction failed</p>
+              </div>
+            }
+            @if (selectedFile()?.status === 'done') {
+              <iframe class="pdf_viewer" [src]="selectedFile()!.safeOutputUrl"></iframe>
+            }
+          </div>
+        </div>
+
+        <div class="buttons">
+          <button type="button" (click)="fileInput.click()">Import More</button>
+          <button type="button" (click)="reRedact()">Re-Redact</button>
+          <button type="button" (click)="downloadAllFiles()">Download Files</button>
+        </div>
       </div>
     </div>
-  </div>
+  }
 </main>
 
 <footer>
-  <p>© Senior Capstone Project</p>
+  <p>Senior Capstone Project: Walker Moody, Blaire Wallace, Ash Sonar, Jace Fergusson, Josiah Luke</p>
 </footer>
