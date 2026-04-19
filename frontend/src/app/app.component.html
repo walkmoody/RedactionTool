@@ -1,0 +1,89 @@
+<header>
+  <h1>Redaction Tool</h1>
+</header>
+
+<input
+  #fileInput
+  type="file"
+  hidden
+  multiple
+  accept=".pdf"
+  (change)="onFileSelected($event)"
+>
+
+<main>
+  <div
+    id="home"
+    *ngIf="files.length === 0"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)"
+  >
+    <p>Drag and drop files here to begin the redaction process</p>
+    <button type="button" (click)="fileInput.click()">Import</button>
+  </div>
+
+  <div id="main" *ngIf="files.length > 0">
+    <div id="leftside">
+      <div class="panel">
+        <p class="text">Files</p>
+
+        <div class="scroll-box">
+          <div class="file_content" *ngFor="let fileItem of files; let i = index">
+            <button class="close-btn" type="button" (click)="removeFile(i)">x</button>
+
+            <button class="file_name" type="button" (click)="selectFile(fileItem)">
+              {{ fileItem.file.name }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <p class="text">Settings</p>
+
+        <div class="scroll-box">
+          <label class="text setting-row" *ngFor="let setting of settings">
+            <input type="checkbox" [(ngModel)]="setting.enabled" />
+            {{ setting.label }}
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div id="rightside">
+      <h3 class="text">
+        {{ selectedFile?.file?.name || 'Selected Filename' }}
+      </h3>
+
+      <div id="items">
+        <div class="pdf_entry">
+          <h4>Before</h4>
+          <iframe
+            class="pdf_viewer"
+            *ngIf="selectedFile"
+            [src]="selectedFile.safePreviewUrl">
+          </iframe>
+        </div>
+
+        <div class="pdf_entry">
+          <h4>Output</h4>
+          <iframe
+            class="pdf_viewer"
+            *ngIf="selectedFile"
+            [src]="selectedFile.safeOutputUrl">
+          </iframe>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button type="button" (click)="fileInput.click()">Import More</button>
+        <button type="button" (click)="downloadAllFiles()">Download Files</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <p>© Senior Capstone Project</p>
+</footer>

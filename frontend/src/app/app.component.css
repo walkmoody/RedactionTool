@@ -1,0 +1,106 @@
+:host {
+    display: block;
+    min-height: 100vh;
+    background: #06122b;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+/* HEADER */
+header {
+    text-align: center;
+    padding: 30px;
+    background: #0d1730;
+}
+
+/* HOME */
+#home {
+    height: 70vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+}
+
+/* MAIN */
+#main {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+}
+
+/* LEFT */
+#leftside {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.panel {
+    background: #111c38;
+    padding: 15px;
+    border-radius: 12px;
+}
+
+.scroll-box {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.file_content {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.close-btn {
+    background: red;
+    color: white;
+    border: none;
+    width: 30px;
+    cursor: pointer;
+}
+
+.file_name {
+    flex: 1;
+}
+
+/* RIGHT */
+#rightside {
+    flex: 1;
+    background: #111c38;
+    padding: 20px;
+    border-radius: 12px;
+}
+
+#items {
+    display: flex;
+    gap: 20px;
+}
+
+.pdf_entry {
+    width: 50%;
+}
+
+.pdf_viewer {
+    width: 100%;
+    height: 400px;
+    background: white;
+}
+
+/* BUTTONS */
+.buttons {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+/* FOOTER */
+footer {
+    text-align: center;
+    padding: 20px;
+    background: #0d1730;
+}
