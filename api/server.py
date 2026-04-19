@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse
 # Ensure project root is on the path so redact.py is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from redact import DEFAULT_ENTITIES, extract_pii_terms_from_pdf, redact_pdf_names  # noqa: E402
+from redactt import DEFAULT_ENTITIES, extract_pii_terms_from_pdf, redact_pdf_names  # noqa: E402
 
 app = FastAPI(title="PII Redaction API")
 
