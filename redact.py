@@ -738,9 +738,9 @@ def redact_pdf_names(
             for r in rects:
                 rr = fitz.Rect(r)
                 rr.x0 -= 0.5
-                rr.y0 -= 0.5
+                rr.y0 -= 0.1
                 rr.x1 += 0.5
-                rr.y1 += 0.5
+                rr.y1 += 0.1
 
                 page.add_redact_annot(rr, fill=fill)
                 total_matches += 1

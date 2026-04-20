@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { PdfCanvasComponent } from './pdf-canvas/pdf-canvas.component';
 
 type Setting = {
   key: string;
@@ -21,7 +22,7 @@ type FileItem = {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, PdfCanvasComponent],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
@@ -29,6 +30,7 @@ export class AppComponent {
   files = signal<FileItem[]>([]);
   selectedFile = signal<FileItem | null>(null);
   exclusions = '';
+  manualSelection = signal<string>('');
 
   settings: Setting[] = [
     { key: 'PERSON', label: 'Name', enabled: true },
@@ -66,9 +68,9 @@ export class AppComponent {
         return {
           file,
           previewUrl,
-          safePreviewUrl: this.sanitizer.bypassSecurityTrustResourceUrl(previewUrl),
+          safePreviewUrl: this.sanitizer.bypassSecurityTrustResourceUrl(previewUrl + '#toolbar=0&navpanes=0'),
           outputUrl: previewUrl,
-          safeOutputUrl: this.sanitizer.bypassSecurityTrustResourceUrl(previewUrl),
+          safeOutputUrl: this.sanitizer.bypassSecurityTrustResourceUrl(previewUrl + '#toolbar=0&navpanes=0'),
           status: 'idle' as const
         };
       });
@@ -107,7 +109,7 @@ export class AppComponent {
         next: (blob) => {
           if (fileItem.outputUrl !== fileItem.previewUrl) URL.revokeObjectURL(fileItem.outputUrl);
           fileItem.outputUrl = URL.createObjectURL(blob);
-          fileItem.safeOutputUrl = this.sanitizer.bypassSecurityTrustResourceUrl(fileItem.outputUrl);
+          fileItem.safeOutputUrl = this.sanitizer.bypassSecurityTrustResourceUrl(fileItem.outputUrl + '#toolbar=0&navpanes=0');
           fileItem.status = 'done';
           this.files.update(f => [...f]);
           this.syncSelected(fileItem);
@@ -157,6 +159,45 @@ export class AppComponent {
       link.click();
       document.body.removeChild(link);
     });
+  }
+
+  manualRedact(fileItem: FileItem): void {
+    const term = this.manualSelection();
+    if (!term) return;
+
+    fetch(fileItem.outputUrl)
+      .then(r => r.blob())
+      .then(blob => {
+        const formData = new FormData();
+        formData.append('file', blob, fileItem.file.name);
+        formData.append('terms', JSON.stringify([term]));
+
+        fileItem.status = 'loading';
+        this.files.update(f => [...f]);
+
+        this.http
+          .post(`http://127.0.0.1:8000/api/redact-terms?t=${Date.now()}`, formData, { responseType: 'blob' })
+          .subscribe({
+            next: (result) => {
+              if (fileItem.outputUrl !== fileItem.previewUrl) URL.revokeObjectURL(fileItem.outputUrl);
+              fileItem.outputUrl = URL.createObjectURL(result);
+              fileItem.safeOutputUrl = this.sanitizer.bypassSecurityTrustResourceUrl(fileItem.outputUrl + '#toolbar=0&navpanes=0');
+              fileItem.status = 'done';
+              this.manualSelection.set('');
+              this.files.update(f => [...f]);
+              this.syncSelected(fileItem);
+            },
+            error: (err) => {
+              console.error('Manual redaction error:', err);
+              fileItem.status = 'done';
+              this.files.update(f => [...f]);
+            }
+          });
+      });
+  }
+
+  truncateName(name: string, max = 23): string {
+    return name.length > max ? name.slice(0, max) + '...' : name;
   }
 
   getOutputFileName(name: string): string {

@@ -66,8 +66,8 @@
                 <button class="close-btn" type="button" (click)="removeFile(i)">
                   <i class="fas fa-trash"></i>
                 </button>
-                <button class="file_name" type="button" (click)="selectFile(fileItem)">
-                  {{ fileItem.file.name }}
+                <button class="file_name" type="button" (click)="selectFile(fileItem)" [title]="fileItem.file.name" [attr.data-text]="truncateName(fileItem.file.name)">
+                  {{ truncateName(fileItem.file.name) }}
                 </button>
                 <span class="status-icon" [title]="fileItem.status">
                   @if (fileItem.status === 'loading') { <i class="fas fa-spinner fa-spin"></i> }
@@ -135,7 +135,15 @@
               </div>
             }
             @if (selectedFile()?.status === 'done') {
-              <iframe class="pdf_viewer" [src]="selectedFile()!.safeOutputUrl"></iframe>
+              <app-pdf-canvas
+                [blobUrl]="selectedFile()!.outputUrl"
+                (selectionChange)="manualSelection.set($event)"
+              ></app-pdf-canvas>
+              @if (manualSelection()) {
+                <button class="redact-selection-btn" type="button" (click)="manualRedact(selectedFile()!)">
+                  <i class="fas fa-eraser"></i> Redact "{{ manualSelection() }}"
+                </button>
+              }
             }
           </div>
         </div>

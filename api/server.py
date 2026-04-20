@@ -128,3 +128,48 @@ async def redact(
         background=None,
         headers={"Cache-Control": "no-store"},
     )
+
+
+@app.post("/api/redact-terms")
+async def redact_terms(
+    file: UploadFile = File(..., description="PDF to redact"),
+    terms: str = Form(..., description="JSON array of exact terms to redact"),
+) -> FileResponse:
+    if file.content_type not in ("application/pdf", "application/octet-stream"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+
+    try:
+        term_list: list[str] = json.loads(terms)
+        if not isinstance(term_list, list):
+            raise ValueError
+    except (ValueError, json.JSONDecodeError):
+        raise HTTPException(status_code=400, detail="'terms' must be a JSON array of strings.")
+
+    term_list = [t.strip() for t in term_list if t.strip()]
+    if not term_list:
+        raise HTTPException(status_code=400, detail="No terms provided.")
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp = Path(tmp_dir)
+        stem = Path(file.filename or "document").stem
+        input_path = tmp / f"{stem}.pdf"
+        output_path = tmp / f"{stem}_REDACTED.pdf"
+        input_path.write_bytes(await file.read())
+
+        redact_pdf_names(
+            input_pdf=input_path,
+            output_pdf=output_path,
+            names=term_list,
+            case_insensitive=True,
+        )
+
+        final_path = Path(tempfile.mktemp(suffix=".pdf"))
+        final_path.write_bytes(output_path.read_bytes())
+
+    return FileResponse(
+        path=str(final_path),
+        media_type="application/pdf",
+        filename=f"{stem}_REDACTED.pdf",
+        background=None,
+        headers={"Cache-Control": "no-store"},
+    )

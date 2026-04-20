@@ -1,0 +1,13 @@
+.pdf-container {
+    width: 100%;
+    overflow-y: auto;
+    max-height: 400px;
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #334155;
+}
+
+:host ::ng-deep .textLayer ::selection {
+    background: rgba(0, 102, 255, 0.3);
+    color: transparent;
+}
