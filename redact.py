@@ -29,6 +29,8 @@ DEFAULT_ENTITIES = [
     "US_ADDRESS",
     "STRICT_DATE",
     "MEDICAL_RECORD_NUMBER",
+    "NPI",
+    "INSURANCE",
 ]
 
 NAME_TITLES = {"dr", "mr", "mrs", "ms", "miss", "prof", "doctor", "professor"}
@@ -36,14 +38,15 @@ HEADER_TITLES = {"mr", "mrs", "ms", "miss", "dr", "prof", "doctor", "professor"}
 
 ENTITY_MIN_SCORE = {
     "PERSON": 0.80,
-    "STRICT_DATE": 0.60,
+    "STRICT_DATE": 0.84,
     "US_ADDRESS": 0.70,
     "MEDICAL_RECORD_NUMBER": 0.85,
 }
 
-MODEL_DIR = "xlmr_pii_ner"
-TRANSFORMER_MAX_LENGTH = 256
-TRANSFORMER_SCORE_THRESHOLD = 0.70
+MODEL_DIR = "xlmr_pii_openpii_1m/checkpoint-70000"
+TRANSFORMER_MAX_LENGTH = 512
+TRANSFORMER_STRIDE = 128
+TRANSFORMER_SCORE_THRESHOLD = 0.85
 
 # Map trained model entity names to your old pipeline entity names
 MODEL_TO_OLD_ENTITY = {
@@ -54,9 +57,6 @@ MODEL_TO_OLD_ENTITY = {
     "CREDIT_CARD": "CREDIT_CARD",
     "EMAIL_ADDRESS": "EMAIL_ADDRESS",
     "PHONE_NUMBER": "PHONE_NUMBER",
-    "DATE_TIME": "STRICT_DATE",
-    # Uncomment only if you want companies/orgs redacted too:
-    # "ORGANIZATION": "LOCATION",
 }
 
 
@@ -67,29 +67,40 @@ MODEL_TO_OLD_ENTITY = {
 def add_strict_date_recognizer(analyzer: AnalyzerEngine) -> None:
     date_patterns = [
         Pattern(
+            name="dob_labeled",
+            score=0.99,
+            regex=r"(?i)(?:DOB|Date\s+of\s+Birth|Birthdate|Birthday)\s*:?\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}",
+        ),
+        Pattern(
+            name="dob_labeled_written",
+            score=0.99,
+            regex=r"(?i)(?:DOB|Date\s+of\s+Birth|Birthdate|Birthday)\s*:?\s*(?:Jan|January|Feb|February|Mar|March|Apr|April|May|Jun|June|Jul|July|Aug|August|Sep|September|Oct|October|Nov|November|Dec|December)\.?\s+\d{1,2},?\s+\d{4}",
+        ),
+        Pattern(
             name="mm_dd_yyyy",
-            score=0.95,
+            score=0.5,
             regex=r"\b\d{1,2}/\d{1,2}/\d{2,4}\b",
         ),
         Pattern(
             name="iso_date",
-            score=0.95,
+            score=0.5,
             regex=r"\b\d{4}-\d{2}-\d{2}\b",
         ),
         Pattern(
             name="month_day_year",
-            score=0.95,
+            score=0.5,
             regex=r"\b(?:Jan|January|Feb|February|Mar|March|Apr|April|May|Jun|June|Jul|July|Aug|August|Sep|September|Oct|October|Nov|November|Dec|December)\s+\d{1,2},?\s+\d{4}\b",
         ),
         Pattern(
             name="month.year",
-            score=0.95,
+            score=0.5,
             regex=r"\b(?:Jan|January|Feb|February|Mar|March|Apr|April|May|Jun|June|Jul|July|Aug|August|Sep|September|Oct|October|Nov|November|Dec|December)\.?\s+\d{4}\b",
         ),
     ]
     recognizer = PatternRecognizer(
         supported_entity="STRICT_DATE",
         patterns=date_patterns,
+        context=["birth", "dob", "born", "birthdate", "birthday", "date of birth"],
     )
     analyzer.registry.add_recognizer(recognizer)
 
@@ -102,7 +113,17 @@ def add_mrn_recognizer(analyzer: AnalyzerEngine) -> None:
             regex=r"\bMRN[-:\s]?\d{4,10}\b",
         ),
         Pattern(
-            name="generic_medical_id",
+            name="generic_medical_id1",
+            score=0.85,
+            regex=r"\b[A-Z]{3,5}-\d{4,10}\b"
+        ),
+        Pattern(
+            name="Letter-Letter-Number",
+            score=0.85,
+            regex=r"\b[A-Z]{3,5}-\b[A-Z]{2,5}-\d{4,10}\b"
+        ),
+        Pattern(
+            name="generic_medical_id2",
             score=0.85,
             regex=r"\b\d{6,10}\b",
         ),
@@ -116,8 +137,66 @@ def add_mrn_recognizer(analyzer: AnalyzerEngine) -> None:
     analyzer.registry.add_recognizer(recognizer)
 
 
+def add_npi_recognizer(analyzer: AnalyzerEngine) -> None:
+    npi_patterns = [
+        Pattern(
+            name="npi_with_label",
+            score=0.99,
+            regex=r"\bNPI[-:\s]?\d{10}\b",
+        ),
+        Pattern(
+            name="npi_bare",
+            score=0.5,
+            regex=r"\b\d{10}\b",
+        ),
+    ]
+    recognizer = PatternRecognizer(
+        supported_entity="NPI",
+        patterns=npi_patterns,
+        context=["npi", "national provider", "provider id", "provider number"],
+    )
+    analyzer.registry.add_recognizer(recognizer)
+
+
+def add_insurance_recognizer(analyzer: AnalyzerEngine) -> None:
+    insurance_patterns = [
+        Pattern(
+            name="medicare_id",
+            score=0.99,
+            regex=r"\bMedicare\s*#?\s*[A-Z0-9]{1,4}(?:-[A-Z0-9]{2,4}){1,4}\b",
+        ),
+        Pattern(
+            name="united_healthcare_id",
+            score=0.99,
+            regex=r"\bUnited\s*Healthcare\s*#?\s*[A-Z]{0,4}-?[A-Z0-9]{4,12}\b",
+        ),
+        Pattern(
+            name="insurance_with_label",
+            score=0.95,
+            regex=r"\b(?:Aetna|Cigna|Humana|BlueCross|Blue\s+Cross|Blue\s+Shield|Anthem|Molina|Centene|WellCare|Tricare|Medicaid)\s*#?\s*[A-Z0-9]{3,}(?:-[A-Z0-9]{2,}){0,4}\b",
+        ),
+        Pattern(
+            name="insurance_generic_label",
+            score=0.95,
+            regex=r"\b(?:Insurance|Ins|Policy|Member\s*ID|Member\s*#|Plan\s*ID)\s*[:#]?\s*[A-Z0-9]{3,}(?:-[A-Z0-9]{2,}){0,4}\b",
+        ),
+    ]
+
+    recognizer = PatternRecognizer(
+        supported_entity="INSURANCE",
+        patterns=insurance_patterns,
+        context=["insurance", "medicare", "medicaid", "policy", "member", "plan", "coverage", "payer"],
+    )
+    analyzer.registry.add_recognizer(recognizer)
+
+
 def add_us_address_recognizer(analyzer: AnalyzerEngine) -> None:
     us_address_patterns = [
+        Pattern(
+            name="street_with_cardinal_direction",
+            score=0.92,
+            regex=r"\b\d{1,5}\s+(?:North|South|East|West|N|S|E|W|NE|NW|SE|SW)\.?\s+[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*){0,3}\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Sq|Square)\.?(?:,|\b)",
+        ),
         Pattern(
             name="us_address_full",
             score=0.85,
@@ -199,6 +278,8 @@ def build_presidio():
     add_us_address_recognizer(analyzer)
     add_strict_date_recognizer(analyzer)
     add_mrn_recognizer(analyzer)
+    add_npi_recognizer(analyzer)
+    add_insurance_recognizer(analyzer)
 
     return analyzer
 
@@ -210,22 +291,22 @@ ANALYZER = build_presidio()
 # TRANSFORMER SETUP
 ############################################################################################
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 try:
-    TRANSFORMER_TOKENIZER = AutoTokenizer.from_pretrained(MODEL_DIR)
-    TRANSFORMER_MODEL = AutoModelForTokenClassification.from_pretrained(MODEL_DIR)
-    TRANSFORMER_MODEL.to(DEVICE)
-    TRANSFORMER_MODEL.eval()
+    TOKENIZER = AutoTokenizer.from_pretrained(MODEL_DIR, use_fast=True)
+    MODEL = AutoModelForTokenClassification.from_pretrained(MODEL_DIR)
+    MODEL.to(_DEVICE)
+    MODEL.eval()
     TRANSFORMER_READY = True
     print(f"Loaded transformer model from: {MODEL_DIR}")
-    print(f"Transformer device: {DEVICE}")
-except Exception as e:
-    TRANSFORMER_TOKENIZER = None
-    TRANSFORMER_MODEL = None
+    print(f"Transformer device: {_DEVICE}")
+except Exception as exc:
+    TOKENIZER = None
+    MODEL = None
     TRANSFORMER_READY = False
-    print(f"Transformer model not loaded: {e}")
-    print("Continuing with Presidio-only mode.")
+    print(f"Transformer model not loaded: {exc}")
+    print("Continuing in Presidio-only mode.")
 
 
 ############################################################################################
@@ -239,7 +320,16 @@ ALLOWLIST_EXACT = {
     "usa", "united states", "weeks ago", "months ago", "minutes",
     "date", "date:", "birth", "email", "biographies",
     "dyspnea", "epigastric", "lumbosacral", "lumbo", "musculoskeletal",
-    "the", "is", "in", "ist",
+    "the", "is", "in", "ist", "name", "medical center", "ED", "ER", "hospital", "clinic",
+    "PO", "SQ", "SpO2", "address",
+    "united", "healthcare", "united healthcare",
+    "medicare", "medicaid", "aetna", "cigna", "humana", "anthem",
+    "insurance", "tricare", "molina", "primera",
+    "quick reference", "quick", "reference",
+    "table of contents", "executive summary", "summary", "overview",
+    "introduction", "appendix", "glossary", "guide", "manual",
+    "report", "form", "document", "section", "note", "notice",
+    "instructions", "information", "disclaimer", "confidential",
 }
 
 DATE_PATTERNS = [
@@ -253,11 +343,12 @@ _WORD_CH = re.compile(r"[A-Za-z0-9_]")
 
 
 class SimpleResult:
-    def __init__(self, start, end, entity_type, score):
+    def __init__(self, start, end, entity_type, score, source="unknown"):
         self.start = start
         self.end = end
         self.entity_type = entity_type
         self.score = score
+        self.source = source
 
 
 def should_keep_term(term: str) -> bool:
@@ -377,7 +468,7 @@ def _looks_like_header_name(line: str) -> bool:
     for p in parts:
         if len(p) < 2:
             return False
-        if not re.match(r"^[A-Z][a-zA-Z.'-]*$", p):
+        if not re.match(r"^[A-Z][a-z.'-]*$", p):
             return False
         if is_allowlisted(p):
             return False
@@ -418,115 +509,118 @@ def detect_pii_spans(text: str, entities=DEFAULT_ENTITIES, default_min=0.85):
     return kept
 
 
-def detect_pii_transformer(text: str, score_threshold: float = TRANSFORMER_SCORE_THRESHOLD):
-    if not TRANSFORMER_READY:
-        return []
+def _decode_transformer_chunk(
+    offsets: list[tuple[int, int]],
+    labels: list[int],
+    scores: list[float],
+    id2label: dict[int, str],
+) -> list[SimpleResult]:
+    spans: list[SimpleResult] = []
+    current: SimpleResult | None = None
 
-    inputs = TRANSFORMER_TOKENIZER(
-        text,
-        return_tensors="pt",
-        truncation=True,
-        max_length=TRANSFORMER_MAX_LENGTH,
-        return_offsets_mapping=True,
-    )
-
-    offset_mapping = inputs.pop("offset_mapping")[0].tolist()
-    inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
-
-    with torch.no_grad():
-        outputs = TRANSFORMER_MODEL(**inputs)
-
-    logits = outputs.logits[0]
-    probs = torch.softmax(logits, dim=-1)
-    pred_ids = torch.argmax(probs, dim=-1).tolist()
-    pred_scores = torch.max(probs, dim=-1).values.tolist()
-    id2label = TRANSFORMER_MODEL.config.id2label
-
-    spans = []
-    current_entity = None
-
-    for pred_id, score, (start, end) in zip(pred_ids, pred_scores, offset_mapping):
+    for pred_id, score, (start, end) in zip(labels, scores, offsets):
         if start == end:
             continue
 
-        label = id2label[pred_id]
-
-        if label == "O" or score < score_threshold:
-            if current_entity is not None:
-                spans.append(current_entity)
-                current_entity = None
+        label = id2label[int(pred_id)]
+        if label == "O" or score < TRANSFORMER_SCORE_THRESHOLD:
+            if current is not None:
+                spans.append(current)
+                current = None
             continue
 
         if "-" not in label:
-            if current_entity is not None:
-                spans.append(current_entity)
-                current_entity = None
+            if current is not None:
+                spans.append(current)
+                current = None
             continue
 
         prefix, entity_type = label.split("-", 1)
-        mapped_entity = MODEL_TO_OLD_ENTITY.get(entity_type)
-
-        if not mapped_entity:
-            if current_entity is not None:
-                spans.append(current_entity)
-                current_entity = None
+        mapped = MODEL_TO_OLD_ENTITY.get(entity_type)
+        if not mapped:
+            if current is not None:
+                spans.append(current)
+                current = None
             continue
 
-        if prefix == "B" or current_entity is None or current_entity["entity_type"] != mapped_entity:
-            if current_entity is not None:
-                spans.append(current_entity)
-
-            current_entity = {
-                "start": start,
-                "end": end,
-                "entity_type": mapped_entity,
-                "score": score,
-            }
+        if prefix == "B" or current is None or current.entity_type != mapped:
+            if current is not None:
+                spans.append(current)
+            current = SimpleResult(start, end, mapped, float(score), source="transformer")
         else:
-            current_entity["end"] = end
-            current_entity["score"] = max(current_entity["score"], score)
+            current.end = end
+            current.score = max(current.score, float(score))
 
-    if current_entity is not None:
-        spans.append(current_entity)
+    if current is not None:
+        spans.append(current)
 
     return spans
 
 
-def merge_pii_results(presidio_results, transformer_results):
-    merged = []
+def detect_pii_spans_transformer(text: str) -> list[SimpleResult]:
+    if not TRANSFORMER_READY:
+        return []
+
+    encoded = TOKENIZER(
+        text,
+        truncation=True,
+        max_length=TRANSFORMER_MAX_LENGTH,
+        stride=TRANSFORMER_STRIDE,
+        return_overflowing_tokens=True,
+        return_offsets_mapping=True,
+        padding=True,
+        return_tensors="pt",
+    )
+
+    offset_mappings = encoded.pop("offset_mapping")
+    if "overflow_to_sample_mapping" in encoded:
+        encoded.pop("overflow_to_sample_mapping")
+
+    encoded = {k: v.to(_DEVICE) for k, v in encoded.items()}
+
+    with torch.no_grad():
+        outputs = MODEL(**encoded)
+
+    probs = torch.softmax(outputs.logits, dim=-1)
+    pred_ids = torch.argmax(probs, dim=-1).cpu().tolist()
+    pred_scores = torch.max(probs, dim=-1).values.cpu().tolist()
+    id2label = MODEL.config.id2label
+
+    all_spans: list[SimpleResult] = []
+    for chunk_idx in range(len(offset_mappings)):
+        offsets = [tuple(map(int, pair)) for pair in offset_mappings[chunk_idx].tolist()]
+        chunk_spans = _decode_transformer_chunk(offsets, pred_ids[chunk_idx], pred_scores[chunk_idx], id2label)
+        all_spans.extend(chunk_spans)
+
+    return all_spans
+
+
+def merge_pii_results(presidio_results, transformer_results: list[SimpleResult]) -> list[SimpleResult]:
+    merged: list[SimpleResult] = []
 
     for r in presidio_results:
-        merged.append(SimpleResult(r.start, r.end, r.entity_type, r.score))
+        merged.append(SimpleResult(r.start, r.end, r.entity_type, r.score, source="presidio"))
 
     for t in transformer_results:
-        t_start = t["start"]
-        t_end = t["end"]
-        t_type = t["entity_type"]
-        t_score = t["score"]
-
         overlap_found = False
-
         for m in merged:
-            overlaps = not (t_end <= m.start or t_start >= m.end)
-            same_type = (t_type == m.entity_type)
-
-            if overlaps and same_type:
-                m.start = min(m.start, t_start)
-                m.end = max(m.end, t_end)
-                m.score = max(m.score, t_score)
+            overlaps = not (t.end <= m.start or t.start >= m.end)
+            if overlaps and t.entity_type == m.entity_type:
+                m.start = min(m.start, t.start)
+                m.end = max(m.end, t.end)
+                m.score = max(m.score, t.score)
                 overlap_found = True
                 break
-
         if not overlap_found:
-            merged.append(SimpleResult(t_start, t_end, t_type, t_score))
+            merged.append(t)
 
     merged.sort(key=lambda x: (x.start, x.end))
     return merged
 
 
-def detect_pii_spans_hybrid(text: str, entities=DEFAULT_ENTITIES, default_min=0.85):
-    presidio_results = detect_pii_spans(text, entities=entities, default_min=default_min)
-    transformer_results = detect_pii_transformer(text)
+def detect_pii_spans_hybrid(text: str, entities=DEFAULT_ENTITIES, default_min=0.85, USE_PRESIDIO=True, USE_TRANSFORMER=True) -> list[SimpleResult]:
+    presidio_results = detect_pii_spans(text, entities=entities, default_min=default_min) if USE_PRESIDIO else []
+    transformer_results = detect_pii_spans_transformer(text) if USE_TRANSFORMER else []
     return merge_pii_results(presidio_results, transformer_results)
 
 
@@ -553,6 +647,14 @@ def redact_text(text: str, results, mask="[REDACTED]"):
 # TERM EXTRACTION
 ############################################################################################
 
+_DEBUG_LOG = Path("/tmp/redact_debug.log")
+
+
+def _log(msg: str) -> None:
+    with _DEBUG_LOG.open("a", encoding="utf-8") as f:
+        f.write(msg + "\n")
+
+
 def extract_pii_terms_from_pdf(
     input_pdf: str | Path,
     *,
@@ -563,29 +665,51 @@ def extract_pii_terms_from_pdf(
     input_pdf = Path(input_pdf)
     doc = fitz.open(str(input_pdf))
 
+    _DEBUG_LOG.write_text("", encoding="utf-8")  # clear log at start of each run
+    _log(f"=== {input_pdf.name} ===")
+
     terms: list[str] = []
 
-    for page in doc:
+    for page_num, page in enumerate(doc, start=1):
         page_text = page.get_text("text") or ""
 
         # hybrid detector: old code + transformer
         results = detect_pii_spans_hybrid(page_text, entities=entities, default_min=min_score)
 
+        _log(f"\n--- Page {page_num} ({len(results)} detections) ---")
+
         # optional header-name boost from your old logic
-        terms.extend(extract_header_name_candidates(page_text))
+        header_candidates = extract_header_name_candidates(page_text)
+        for h in header_candidates:
+            _log(f"  [HEADER]  term={h!r}")
+        terms.extend(header_candidates)
 
         for r in results:
             raw = page_text[r.start:r.end]
+            source = getattr(r, "source", "presidio")
+            snippet = repr(raw[:60])
 
             if not is_whole_word_span(page_text, r.start, r.end):
+                _log(f"  [SKIP not-whole-word] {r.entity_type} score={r.score:.2f} src={source} raw={snippet}")
                 continue
 
             raw = re.sub(r"\s+", " ", raw).strip()
 
             if not raw or len(raw) > max_term_len:
+                _log(f"  [SKIP len] {r.entity_type} score={r.score:.2f} src={source} raw={snippet}")
                 continue
 
             if is_allowlisted(raw):
+                _log(f"  [SKIP allowlist] {r.entity_type} score={r.score:.2f} src={source} raw={repr(raw)}")
+                continue
+
+            if r.entity_type == "NPI":
+                npi_match = re.search(r'\d{10}', raw)
+                if npi_match:
+                    _log(f"  [KEEP] NPI score={r.score:.2f} src={source} raw={repr(raw)} → term={repr(npi_match.group())}")
+                    terms.append(npi_match.group())
+                else:
+                    _log(f"  [SKIP no-npi-in-span] NPI score={r.score:.2f} src={source} raw={repr(raw)}")
                 continue
 
             if r.entity_type in {
@@ -593,21 +717,49 @@ def extract_pii_terms_from_pdf(
                 "PHONE_NUMBER",
                 "CREDIT_CARD",
                 "US_SSN",
-                "STRICT_DATE",
                 "MEDICAL_RECORD_NUMBER",
             }:
+                _log(f"  [KEEP] {r.entity_type} score={r.score:.2f} src={source} term={repr(raw)}")
                 terms.append(raw)
+                continue
+
+            if r.entity_type == "INSURANCE":
+                # Strip insurer name label — keep only the ID/number portion
+                id_match = re.search(
+                    r'(?:Medicare|United\s*Healthcare|Aetna|Cigna|Humana|BlueCross|Blue\s+Cross|Blue\s+Shield|Anthem|Molina|Centene|WellCare|Tricare|Medicaid|Insurance|Ins|Policy|Member\s*ID|Member\s*#|Plan\s*ID)\s*[:#]?\s*([A-Z0-9]{1,4}(?:-[A-Z0-9]{2,12})+|[A-Z0-9]{4,})',
+                    raw, re.IGNORECASE,
+                )
+                if id_match:
+                    _log(f"  [KEEP] INSURANCE score={r.score:.2f} src={source} raw={repr(raw)} → term={repr(id_match.group(1))}")
+                    terms.append(id_match.group(1))
+                else:
+                    _log(f"  [SKIP no-id-in-span] INSURANCE score={r.score:.2f} src={source} raw={repr(raw)}")
+                continue
+
+            if r.entity_type == "STRICT_DATE":
+                # Strip any leading label (e.g. "DOB: ") — keep only the date value
+                date_match = re.search(r"\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\b(?:Jan|January|Feb|February|Mar|March|Apr|April|May|Jun|June|Jul|July|Aug|August|Sep|September|Oct|October|Nov|November|Dec|December)\.?\s+\d{1,2},?\s+\d{4}|\b\d{4}-\d{2}-\d{2}", raw)
+                if date_match:
+                    _log(f"  [KEEP] STRICT_DATE score={r.score:.2f} src={source} raw={repr(raw)} → term={repr(date_match.group())}")
+                    terms.append(date_match.group())
+                else:
+                    _log(f"  [SKIP no-date-in-span] STRICT_DATE score={r.score:.2f} src={source} raw={repr(raw)}")
                 continue
 
             if r.entity_type == "US_ADDRESS":
                 addr_tokens = [_norm_token(t) for t in raw.split() if _norm_token(t)]
                 if addr_tokens:
-                    terms.append(" ".join(addr_tokens))
+                    term = " ".join(addr_tokens)
+                    _log(f"  [KEEP] US_ADDRESS score={r.score:.2f} src={source} term={repr(term)}")
+                    terms.append(term)
+                else:
+                    _log(f"  [SKIP empty-addr] US_ADDRESS score={r.score:.2f} src={source} raw={repr(raw)}")
                 continue
 
             if r.entity_type == "PERSON":
                 person_tokens = _clean_person_tokens(raw)
                 if not person_tokens:
+                    _log(f"  [SKIP empty-person] PERSON score={r.score:.2f} src={source} raw={repr(raw)}")
                     continue
 
                 full_person = " ".join(person_tokens)
@@ -620,15 +772,23 @@ def extract_pii_terms_from_pdf(
                     if prefix_clean in NAME_TITLES:
                         full_person = f"{prefix_raw} {full_person}"
 
+                _log(f"  [KEEP] PERSON score={r.score:.2f} src={source} term={repr(full_person)}")
                 terms.append(full_person)
                 continue
 
             if r.entity_type in {"LOCATION", "AGE", "ZIP_CODE"}:
+                _log(f"  [KEEP] {r.entity_type} score={r.score:.2f} src={source} term={repr(raw)}")
                 terms.append(raw)
                 continue
 
+            _log(f"  [SKIP unhandled] {r.entity_type} score={r.score:.2f} src={source} raw={repr(raw)}")
+
     doc.close()
-    return _normalize_names(terms)
+    result = _normalize_names(terms)
+    _log(f"\n=== Final terms ({len(result)}) ===")
+    for t in result:
+        _log(f"  {repr(t)}")
+    return result
 
 
 ############################################################################################

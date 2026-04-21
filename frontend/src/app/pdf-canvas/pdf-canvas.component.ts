@@ -9,6 +9,7 @@ import {
   ViewChild,
   AfterViewInit,
   NgZone,
+  SimpleChanges,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -28,6 +29,9 @@ export class PdfCanvasComponent implements OnChanges, OnDestroy, AfterViewInit {
 
   @ViewChild('container') containerRef!: ElementRef<HTMLDivElement>;
 
+  private rendering = false;
+  private pendingRender = false;
+
   private selectionHandler = () => {
     const sel = window.getSelection()?.toString().trim() ?? '';
     this.zone.run(() => this.selectionChange.emit(sel));
@@ -40,8 +44,8 @@ export class PdfCanvasComponent implements OnChanges, OnDestroy, AfterViewInit {
     if (this.blobUrl) this.render();
   }
 
-  ngOnChanges(): void {
-    if (this.containerRef) this.render();
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['blobUrl'] && this.containerRef) this.render();
   }
 
   ngOnDestroy(): void {
@@ -49,54 +53,77 @@ export class PdfCanvasComponent implements OnChanges, OnDestroy, AfterViewInit {
   }
 
   private async render(): Promise<void> {
+    if (this.rendering) {
+      this.pendingRender = true;
+      return;
+    }
+
+    this.rendering = true;
+    this.pendingRender = false;
+    const urlAtStart = this.blobUrl;
     const container = this.containerRef?.nativeElement;
-    if (!container || !this.blobUrl) return;
+
+    if (!container || !urlAtStart) {
+      this.rendering = false;
+      return;
+    }
 
     container.innerHTML = '';
 
-    const pdf = await pdfjsLib.getDocument(this.blobUrl).promise;
-    const dpr = window.devicePixelRatio || 1;
+    try {
+      const pdf = await pdfjsLib.getDocument(urlAtStart).promise;
+      const dpr = window.devicePixelRatio || 1;
 
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const containerWidth = container.clientWidth || 600;
-      const scale = containerWidth / page.getViewport({ scale: 1 }).width;
-      const viewport = page.getViewport({ scale });
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        if (this.blobUrl !== urlAtStart) break;
 
-      const wrapper = document.createElement('div');
-      wrapper.style.position = 'relative';
-      wrapper.style.width = `${viewport.width}px`;
-      wrapper.style.height = `${viewport.height}px`;
-      wrapper.style.marginBottom = '8px';
-      wrapper.style.setProperty('--scale-factor', String(scale));
-      wrapper.style.setProperty('--user-unit', '1');
-      wrapper.style.setProperty('--total-scale-factor', String(scale));
+        const page = await pdf.getPage(pageNum);
+        const containerWidth = container.clientWidth || container.offsetWidth || 600;
+        const scale = containerWidth / page.getViewport({ scale: 1 }).width;
+        const viewport = page.getViewport({ scale });
 
-      // Canvas — scaled for device pixel ratio to avoid blur
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.floor(viewport.width * dpr);
-      canvas.height = Math.floor(viewport.height * dpr);
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
-      canvas.style.display = 'block';
-      wrapper.appendChild(canvas);
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'relative';
+        wrapper.style.width = `${viewport.width}px`;
+        wrapper.style.height = `${viewport.height}px`;
+        wrapper.style.marginBottom = '8px';
+        wrapper.style.setProperty('--scale-factor', String(scale));
+        wrapper.style.setProperty('--user-unit', '1');
+        wrapper.style.setProperty('--total-scale-factor', String(scale));
 
-      const ctx = canvas.getContext('2d')!;
-      ctx.scale(dpr, dpr);
-      await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+        // Canvas — scaled for device pixel ratio to avoid blur
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+        canvas.style.display = 'block';
+        wrapper.appendChild(canvas);
 
-      const textDiv = document.createElement('div');
-      textDiv.className = 'textLayer';
-      wrapper.appendChild(textDiv);
+        const ctx = canvas.getContext('2d')!;
+        ctx.scale(dpr, dpr);
+        await page.render({ canvas, canvasContext: ctx, viewport }).promise;
 
-      const textLayer = new pdfjsLib.TextLayer({
-        textContentSource: await page.getTextContent(),
-        container: textDiv,
-        viewport,
-      });
-      await textLayer.render();
+        if (this.blobUrl !== urlAtStart) break;
 
-      container.appendChild(wrapper);
+        const textDiv = document.createElement('div');
+        textDiv.className = 'textLayer';
+        wrapper.appendChild(textDiv);
+
+        const textLayer = new pdfjsLib.TextLayer({
+          textContentSource: await page.getTextContent(),
+          container: textDiv,
+          viewport,
+        });
+        await textLayer.render();
+
+        container.appendChild(wrapper);
+      }
+    } catch (e) {
+      console.error('PDF render error:', e);
+    } finally {
+      this.rendering = false;
+      if (this.pendingRender) this.render();
     }
   }
 }

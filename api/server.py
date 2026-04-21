@@ -4,6 +4,7 @@ Exposes POST /api/redact — accepts a PDF + entity list, returns a redacted PDF
 
 Run with:
     conda run -n redact uvicorn api.server:app --reload --port 8000
+    python -u -m uvicorn api.server:app --port 8000
 """
 from __future__ import annotations
 
@@ -19,9 +20,35 @@ from fastapi.responses import FileResponse
 # Ensure project root is on the path so redact.py is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from redact import DEFAULT_ENTITIES, extract_pii_terms_from_pdf, redact_pdf_names  # noqa: E402
+from redact import DEFAULT_ENTITIES, extract_pii_terms_from_pdf, redact_pdf_names, _log, TOKENIZER, MODEL, _DEVICE, TRANSFORMER_READY, ANALYZER  # noqa: E402
+from contextlib import asynccontextmanager
+import torch
 
-app = FastAPI(title="PII Redaction API")
+
+def _warmup() -> None:
+    dummy = "Patient John Doe, DOB 01/01/1980, SSN 123-45-6789, 123 Main St, Phoenix AZ 85001."
+
+    print("Warming up Presidio/spaCy...")
+    ANALYZER.analyze(text=dummy, language="en")
+    print("Presidio warmup complete.")
+
+    if not TRANSFORMER_READY:
+        print("Transformer not loaded — skipping warmup.")
+        return
+    print("Warming up transformer model...")
+    inputs = TOKENIZER(dummy, return_tensors="pt", truncation=True, max_length=64).to(_DEVICE)
+    with torch.no_grad():
+        MODEL(**inputs)
+    print("Transformer warmup complete.")
+
+
+@asynccontextmanager
+async def lifespan(app):
+    _warmup()
+    yield
+
+
+app = FastAPI(title="PII Redaction API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -103,9 +130,21 @@ async def redact(
             core_words = set(core.split())
             return bool(core_words & excluded_lower)
 
-        pii_terms = [t for t in pii_terms if not _is_excluded(t)]
+        _log(f"\n=== Exclusion filter (excluded_lower={excluded_lower}) ===")
+        kept, dropped = [], []
+        for t in pii_terms:
+            if _is_excluded(t):
+                dropped.append(t)
+            else:
+                kept.append(t)
+        for t in dropped:
+            _log(f"  [EXCLUDED] {repr(t)}")
+        for t in kept:
+            _log(f"  [SENDING TO REDACT] {repr(t)}")
+        pii_terms = kept
 
         if not pii_terms:
+            _log("  No terms remain after exclusion — returning original file.")
             # Nothing to redact — return the original file unchanged
             output_path = input_path
         else:

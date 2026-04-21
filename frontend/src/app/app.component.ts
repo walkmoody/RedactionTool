@@ -39,7 +39,11 @@ export class AppComponent {
     { key: 'EMAIL_ADDRESS', label: 'Email', enabled: true },
     { key: 'US_SSN', label: 'SSN', enabled: true },
     { key: 'CREDIT_CARD', label: 'Credit Card', enabled: true },
-    { key: 'LOCATION', label: 'Location', enabled: true }
+    { key: 'LOCATION', label: 'Location', enabled: true },
+    { key: 'STRICT_DATE', label: 'DOB', enabled: true },
+    { key: 'MEDICAL_RECORD_NUMBER', label: 'Medical Record Number', enabled: true },
+    { key : 'INSURANCE', label: 'Insurance', enabled: true },
+    { key: 'NPI', label: 'NPI', enabled: true }
   ];
 
   constructor(private sanitizer: DomSanitizer, private http: HttpClient) {}
