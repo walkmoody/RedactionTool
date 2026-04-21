@@ -69,7 +69,7 @@ async def redact(
     ),
     exclusions: str = Form(
         default="[]",
-        description="JSON array of names to exclude from redaction",
+        description="JSON array oxxf names to exclude from redaction",
     ),
 ) -> FileResponse:
     print(f"Received file: {file.filename} with entities: {entities}")
@@ -113,10 +113,12 @@ async def redact(
                 excluded_lower.add(word)
 
         # ── Run redaction ─────────────────────────────────────────────────
+        use_transformer = set(selected) == set(DEFAULT_ENTITIES)
         pii_terms = extract_pii_terms_from_pdf(
             input_path,
             entities=selected,
             min_score=0.6,
+            use_transformer=use_transformer,
         )
 
         import re as _re

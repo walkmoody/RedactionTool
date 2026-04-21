@@ -103,6 +103,41 @@ SHOULD_REDACT = [
     # ── Insurance ────────────────────────────────────────────────────────────
     ("medicare id",               "Medicare # 1EG4-TE5-MK72",                          "1EG4-TE5-MK72"),
     ("insurance member id",       "Member ID: XYZ987654",                              "XYZ987654"),
+    ("hyphenated name",        "Patient: Anne-Marie Johnson",            "Anne-Marie Johnson"),
+    ("apostrophe name",        "Patient: O'Connor Patrick",              "O'Connor Patrick"),
+    ("all caps name",          "PATIENT: MICHAEL SCOTT",                 "MICHAEL SCOTT"),
+    ("lowercase name",         "patient: jim halpert",                   "jim halpert"),
+    ("name with suffix",       "Patient: Robert Downey Jr.",             "Robert Downey"),
+    ("three part name",        "Patient: Mary Kate Olsen",               "Mary Kate Olsen"),
+    ("name with title inline", "Seen by Dr John Watson today",           "John Watson"),
+
+    # ── Phones (edge formats) ───────────────────────────────────────────────
+    ("phone no separators",    "Phone: 8065551234",                      "8065551234"),
+    ("phone with country",     "Phone: +1 (806) 555-7777",               "555-7777"),
+    ("phone ext",              "Phone: 806-555-8888 ext 22",             "806-555-8888"),
+
+    # ── Emails (edge cases) ─────────────────────────────────────────────────
+    ("email plus",             "Email: test+alias@gmail.com",            "test+alias@gmail.com"),
+    ("email caps",             "Email: JOHN.DOE@EXAMPLE.COM",            "JOHN.DOE@EXAMPLE.COM"),
+
+    # ── Dates (harder) ──────────────────────────────────────────────────────
+    ("dob dots",               "DOB: 03.15.1958",                        "03.15.1958"),
+    ("dob short year",         "DOB: 03/15/58",                          "03/15/58"),
+
+    # ── Addresses (messy) ───────────────────────────────────────────────────
+    ("address lowercase",      "Address: 88 pine street houston tx",     "88 pine street"),
+    ("address no comma",       "Address: 12 Sunset Blvd Los Angeles CA", "12 Sunset Blvd"),
+    ("address unit",           "Address: 400 Main St Unit 12",           "400 Main St"),
+
+    # ── MRN variants ────────────────────────────────────────────────────────
+    ("mrn spaced",             "MRN : 4455667",                          "4455667"),
+    ("mrn text inline",        "Patient MRN 9988776 recorded",           "9988776"),
+
+    # ── Insurance variations ────────────────────────────────────────────────
+    ("insurance dashed",       "Policy: ABC-123-XYZ",                    "ABC-123-XYZ"),
+    ("insurance numeric",      "Insurance ID: 999888777",                "999888777"),
+
+    # ── OCR-like spacing issues ─────────────────────────────────────────────
 ]
 
 
@@ -117,6 +152,25 @@ SHOULD_NOT_REDACT = [
     ("gabapentin",          "Medications: Gabapentin 300 mg TID",         "Gabapentin"),
     ("sertraline",          "Medications: Sertraline 50 mg daily",        "Sertraline"),
     ("furosemide",          "Medications: Furosemide 40 mg daily",        "Furosemide"),
+    ("kcl",                 "Medications: KCl 20 mEq daily",              "KCl"),
+    ("pneumovax",           "Vaccines: Pneumovax 23 administered",        "Pneumovax"),
+    ("aspirin",             "Medications: Aspirin 81 mg daily",           "Aspirin"),
+    ("warfarin",            "Medications: Warfarin 5 mg daily",           "Warfarin"),
+    ("prednisone",          "Medications: Prednisone 10 mg daily",        "Prednisone"),
+    ("insulin",             "Medications: Insulin glargine 20 units QHS", "Insulin"),
+    ("amoxicillin",         "Medications: Amoxicillin 500 mg TID",        "Amoxicillin"),
+    ("azithromycin",        "Medications: Azithromycin 250 mg daily",     "Azithromycin"),
+    ("levothyroxine",       "Medications: Levothyroxine 50 mcg daily",    "Levothyroxine"),
+    ("clopidogrel",         "Medications: Clopidogrel 75 mg daily",       "Clopidogrel"),
+    ("amlodipine",          "Medications: Amlodipine 5 mg daily",         "Amlodipine"),
+
+    # ── Vaccines ─────────────────────────────────────────────────────────────
+    ("flu shot",            "Vaccines: Influenza vaccine given",          "Influenza"),
+    ("tdap",                "Vaccines: Tdap booster administered",        "Tdap"),
+
+    # ── Geographic / country names ────────────────────────────────────────────
+    ("united states",       "Born in the United States",                  "United States"),
+    ("new york",            "Relocated from New York to Texas",           "New York"),
 
     # ── Medical terms / symptoms ─────────────────────────────────────────────
     ("dyspnea",             "Chief Complaint: dyspnea on exertion",       "dyspnea"),
@@ -176,6 +230,39 @@ SHOULD_NOT_REDACT = [
     ("height weight",       "Ht: 5 ft 10 in  Wt: 185 lbs",              "185"),
     ("temp reading",        "Temp: 98.6 F",                               "98.6"),
     ("heart rate",          "HR: 72 bpm",                                 "72"),
+    ("disease name",        "Diagnosis: Parkinson disease",          "Parkinson"),
+    ("syndrome",            "Condition: Down syndrome",              "Down"),
+    ("procedure name",      "Procedure: Whipple procedure",          "Whipple"),
+
+    # ── Numbers that look like IDs ──────────────────────────────────────────
+    ("glucose level",       "Glucose: 123 mg/dL",                    "123"),
+    ("platelet count",      "Platelets: 250000",                     "250000"),
+
+    # ── Dates that are NOT DOB ──────────────────────────────────────────────
+    ("year only",           "History: 1998 surgery",                 "1998"),
+    ("range",               "Hospitalized 2019-2020",               "2019-2020"),
+
+    # ── Email-like but not email ────────────────────────────────────────────
+    ("not email",           "Follow up at example.com site",         "example.com"),
+
+    # ── Address-like but clinical ───────────────────────────────────────────
+    ("unit reference",      "Patient in unit 5B",                    "5B"),
+
+    # ── Names that are medications/brands ───────────────────────────────────
+    ("insulin brand",       "Medication: Humalog insulin",           "Humalog"),
+    ("device name",         "Device: Philips monitor",               "Philips"),
+
+    # ── Month words edge cases ──────────────────────────────────────────────
+    ("march verb",          "Patient will march forward with therapy","march"),
+    ("may modal",           "Patient may return if symptoms worsen", "may"),
+
+    # ── Abbreviations ───────────────────────────────────────────────────────
+    ("dr abbreviation",     "Plan discussed with dr team",           "dr"),
+    ("pt abbreviation",     "pt reports improvement",                "pt"),
+
+    # ── Clinical shorthand ──────────────────────────────────────────────────
+    ("bid",                 "Medication: take BID",                  "BID"),
+    ("tid",                 "Medication: take TID",                  "TID"),
 ]
 
 
@@ -282,3 +369,75 @@ def test_pii_labels_all_present(redacted_text):
 def test_clinical_values_preserved(redacted_text):
     for val in ("120/80", "SpO2", "98.6", "214B"):
         assert val in redacted_text, f"Clinical value '{val}' was incorrectly redacted."
+def test_no_partial_name_leaks(redacted_text):
+    """Ensure partial fragments of names don't leak (common bug)."""
+    for frag in ("Jonathan", "Harker", "Emily", "Clarke"):
+        assert frag not in redacted_text, f"Partial name fragment '{frag}' leaked."
+
+
+def test_no_digit_sequences_like_ssn(redacted_text):
+    """Catch near-SSN patterns."""
+    assert not re.search(r"\b\d{3}[-\s]\d{2}[-\s]\d{3,4}\b", redacted_text)
+
+
+def test_redaction_does_not_remove_entire_lines(redacted_text):
+    """Ensure lines still exist after redaction (no over-deletion)."""
+    lines = redacted_text.split("\n")
+    assert any("Medications" in l for l in lines), "Content collapsed too aggressively."
+
+
+def test_multiple_entities_same_line(redacted_text):
+    """Ensure multiple PII on one line are all removed."""
+    assert "John Doe" not in redacted_text
+    assert "john@example.com" not in redacted_text
+    assert "555-1234" not in redacted_text
+
+
+def test_repeated_pii_all_removed(redacted_text):
+    """Same PII appearing multiple times should be fully removed."""
+    assert redacted_text.count("Jonathan Harker") == 0
+
+
+# ---------------------------------------------------------------------------
+# Entity-toggle tests — when an entity is disabled it must NOT be redacted
+# ---------------------------------------------------------------------------
+
+# (entity_to_disable, pdf_line, term_that_must_survive)
+ENTITY_TOGGLE_CASES = [
+    ("PERSON",               "Patient: Gordon Ramsay",                   "Gordon Ramsay"),
+    ("EMAIL_ADDRESS",        "Email: toggle.test@example.com",           "toggle.test@example.com"),
+    ("PHONE_NUMBER",         "Phone: (512) 555-9988",                    "(512) 555-9988"),
+    ("US_SSN",               "SSN: 321-54-9876",                         "321-54-9876"),
+    ("US_ADDRESS",           "Address: 77 Pine Street, Austin TX 78701", "77 Pine Street"),
+    ("STRICT_DATE",          "DOB: 07/04/1980",                          "07/04/1980"),
+    ("MEDICAL_RECORD_NUMBER","MRN: 1122334",                             "1122334"),
+    ("INSURANCE",            "Medicare # 2EG5-TF6-NL83",                 "2EG5-TF6-NL83"),
+]
+
+
+
+def _run_pipeline_with_entities(tmp, entities, lines):
+    from redact import extract_pii_terms_from_pdf, redact_pdf_names, DEFAULT_ENTITIES
+    input_pdf = tmp / "input.pdf"
+    output_pdf = tmp / "output.pdf"
+    _make_pdf(lines, input_pdf)
+    use_transformer = set(entities) == set(DEFAULT_ENTITIES)
+    terms = extract_pii_terms_from_pdf(input_pdf, entities=entities, min_score=0.6, use_transformer=use_transformer)
+    if terms:
+        redact_pdf_names(input_pdf=input_pdf, output_pdf=output_pdf, names=terms)
+    else:
+        output_pdf.write_bytes(input_pdf.read_bytes())
+    return _pdf_text(output_pdf)
+
+
+@pytest.mark.parametrize("disabled_entity,line,term", ENTITY_TOGGLE_CASES,
+                         ids=[x[0] for x in ENTITY_TOGGLE_CASES])
+def test_disabled_entity_not_redacted(tmp_path_factory, disabled_entity, line, term):
+    """When an entity type is disabled, its PII must survive in the output."""
+    from redact import DEFAULT_ENTITIES
+    entities = [e for e in DEFAULT_ENTITIES if e != disabled_entity]
+    tmp = tmp_path_factory.mktemp(f"toggle_{disabled_entity.lower()}")
+    text = _run_pipeline_with_entities(tmp, entities, [line])
+    assert term in text, (
+        f"[{disabled_entity} disabled] '{term}' should NOT be redacted but was removed."
+    )

@@ -1,3 +1,4 @@
+import JSZip from 'jszip';
 import { Component, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -39,7 +40,6 @@ export class AppComponent {
     { key: 'EMAIL_ADDRESS', label: 'Email', enabled: true },
     { key: 'US_SSN', label: 'SSN', enabled: true },
     { key: 'CREDIT_CARD', label: 'Credit Card', enabled: true },
-    { key: 'LOCATION', label: 'Location', enabled: true },
     { key: 'STRICT_DATE', label: 'DOB', enabled: true },
     { key: 'MEDICAL_RECORD_NUMBER', label: 'Medical Record Number', enabled: true },
     { key : 'INSURANCE', label: 'Insurance', enabled: true },
@@ -154,15 +154,27 @@ export class AppComponent {
     }
   }
 
-  downloadAllFiles(): void {
-    this.files().forEach(fileItem => {
+  async downloadAllFiles(): Promise<void> {
+    const doneFiles = this.files().filter(f => f.outputUrl);
+    if (doneFiles.length === 1) {
       const link = document.createElement('a');
-      link.href = fileItem.outputUrl;
-      link.download = this.getOutputFileName(fileItem.file.name);
-      document.body.appendChild(link);
+      link.href = doneFiles[0].outputUrl;
+      link.download = this.getOutputFileName(doneFiles[0].file.name);
       link.click();
-      document.body.removeChild(link);
-    });
+      return;
+    }
+    const zip = new JSZip();
+    for (const fileItem of doneFiles) {
+      const blob = await fetch(fileItem.outputUrl).then(r => r.blob());
+      zip.file(this.getOutputFileName(fileItem.file.name), blob);
+    }
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'redacted_files.zip';
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   manualRedact(fileItem: FileItem): void {

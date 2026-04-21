@@ -25,7 +25,6 @@ DEFAULT_ENTITIES = [
     "US_SSN",
     "ZIP_CODE",
     "AGE",
-    "LOCATION",
     "US_ADDRESS",
     "STRICT_DATE",
     "MEDICAL_RECORD_NUMBER",
@@ -124,8 +123,8 @@ def add_mrn_recognizer(analyzer: AnalyzerEngine) -> None:
         ),
         Pattern(
             name="generic_medical_id2",
-            score=0.85,
-            regex=r"\b\d{6,10}\b",
+            score=0.5,
+            regex=r"\b\d{7,10}\b",
         ),
     ]
 
@@ -378,15 +377,23 @@ except Exception as exc:
 ############################################################################################
 
 ALLOWLIST_EXACT = {
-    "inc", "llc", "ltd",
+    "inc", "llc", "ltd", "md",
     "university", "department",
     "texas", "california",
-    "usa", "united states", "weeks ago", "months ago", "minutes",
+    "usa", "united", "states", "united states", "united states of america",
+    "new york", "new jersey", "new mexico", "new hampshire",
+    "west virginia", "north carolina", "south carolina",
+    "north dakota", "south dakota", "rhode island",
+    "weeks ago", "months ago", "minutes",
     "date", "date:", "birth", "email", "biographies",
     "dyspnea", "epigastric", "lumbosacral", "lumbo", "musculoskeletal",
     "tamsulosin", "metformin", "lisinopril", "atorvastatin", "amlodipine",
     "omeprazole", "metoprolol", "albuterol", "gabapentin", "sertraline",
     "losartan", "furosemide", "pantoprazole", "escitalopram", "hydrochlorothiazide",
+    "pneumovax", "clopidogrel", "warfarin", "prednisone", "insulin", "amoxicillin",
+    "azithromycin", "levothyroxine", "aspirin", "kcl", "influenza", "tdap",
+    "whipple", "appendectomy", "cholecystectomy", "colonoscopy", "bronchoscopy",
+    "endoscopy", "biopsy", "catheterization", "intubation", "dialysis",
     "the", "is", "in", "ist", "name", "medical center", "ED", "ER", "hospital", "clinic",
     "PO", "SQ", "SpO2", "address",
 
@@ -765,6 +772,7 @@ def extract_pii_terms_from_pdf(
     entities=DEFAULT_ENTITIES,
     min_score=0.7,
     max_term_len=80,
+    use_transformer: bool = True,
 ) -> list[str]:
     input_pdf = Path(input_pdf)
     doc = fitz.open(str(input_pdf))
@@ -778,15 +786,16 @@ def extract_pii_terms_from_pdf(
         page_text = page.get_text("text") or ""
 
         # hybrid detector: old code + transformer
-        results = detect_pii_spans_hybrid(page_text, entities=entities, default_min=min_score)
+        results = detect_pii_spans_hybrid(page_text, entities=entities, default_min=min_score, USE_TRANSFORMER=use_transformer)
 
         _log(f"\n--- Page {page_num} ({len(results)} detections) ---")
 
-        # optional header-name boost from your old logic
-        header_candidates = extract_header_name_candidates(page_text)
-        for h in header_candidates:
-            _log(f"  [HEADER]  term={h!r}")
-        terms.extend(header_candidates)
+        # optional header-name boost — only when PERSON redaction is enabled
+        if "PERSON" in set(entities):
+            header_candidates = extract_header_name_candidates(page_text)
+            for h in header_candidates:
+                _log(f"  [HEADER]  term={h!r}")
+            terms.extend(header_candidates)
 
         for r in results:
             raw = page_text[r.start:r.end]
@@ -801,12 +810,12 @@ def extract_pii_terms_from_pdf(
                 _log(f"  [SKIP not-whole-word] {r.entity_type} score={r.score:.2f} src={source} raw={snippet}")
                 continue
 
-            # For PERSON spans that cross a newline, only keep the first line —
-            # cross-line spans like "John Smith\nGuarantor" can't be matched in the PDF.
-            if r.entity_type == "PERSON" and "\n" in raw:
+            # For spans that cross a newline, only keep the first line —
+            # cross-line spans can't be matched as a single block in the PDF.
+            if "\n" in raw:
                 raw = raw.split("\n")[0].strip()
                 if not raw:
-                    _log(f"  [SKIP empty-after-newline-trim] PERSON score={r.score:.2f} src={source}")
+                    _log(f"  [SKIP empty-after-newline-trim] {r.entity_type} score={r.score:.2f} src={source}")
                     continue
 
             raw = re.sub(r"\s+", " ", raw).strip()
@@ -820,6 +829,7 @@ def extract_pii_terms_from_pdf(
             if is_allowlisted(raw):
                 _log(f"  [SKIP allowlist] {r.entity_type} score={r.score:.2f} src={source} raw={repr(raw)}")
                 continue
+
 
             if r.entity_type == "PERSON" and _is_medical_term(raw.split()[-1]):
                 _log(f"  [SKIP medical-term] {r.entity_type} score={r.score:.2f} src={source} raw={repr(raw)}")
