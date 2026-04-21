@@ -204,6 +204,48 @@ header {
     gap: 10px;
 }
 
+/* DEMO PASTE BOX */
+#demo-paste {
+    margin: 30px auto;
+    max-width: 800px;
+    width: calc(100% - 60px);
+    background: #162344;
+    border-radius: 12px;
+    padding: 24px 28px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+#demo-paste h3 {
+    margin: 0 0 6px;
+    font-size: 1rem;
+    color: #a0b4d6;
+    font-weight: 600;
+}
+
+.demo-hint {
+    font-size: 0.8rem;
+    color: #6b80a0;
+    margin: 0 0 14px;
+}
+
+#demo-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: #0d1b35;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-family: 'Open Sans', sans-serif;
+    font-size: 0.85rem;
+    padding: 12px;
+    resize: vertical;
+    outline: none;
+}
+
+#demo-textarea:focus {
+    border-color: #4a8ade;
+}
+
 /* FOOTER */
 footer {
     text-align: center;

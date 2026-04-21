@@ -195,7 +195,12 @@ def add_us_address_recognizer(analyzer: AnalyzerEngine) -> None:
         Pattern(
             name="street_with_cardinal_direction",
             score=0.92,
-            regex=r"\b\d{1,5}\s+(?:North|South|East|West|N|S|E|W|NE|NW|SE|SW)\.?\s+[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*){0,3}\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Sq|Square)\.?(?:,|\b)",
+            regex=r"\b\d{1,5}\s+(?:North|South|East|West|N|S|E|W|NE|NW|SE|SW)\.?\s+(?:\d{1,3}(?:st|nd|rd|th)|[A-Za-z][A-Za-z.'-]*)(?:\s+[A-Za-z][A-Za-z.'-]*){0,3}\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Sq|Square)\.?(?:,|\b)",
+        ),
+        Pattern(
+            name="directional_led_street",
+            score=0.90,
+            regex=r"\b(?:North|South|East|West)\s+(?:\d{1,3}(?:st|nd|rd|th)|[A-Za-z][A-Za-z.'-]*)(?:\s+[A-Za-z][A-Za-z.'-]*){0,3}\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Sq|Square)\.?(?:,|\b)",
         ),
         Pattern(
             name="us_address_full",
@@ -255,12 +260,56 @@ def add_us_address_recognizer(analyzer: AnalyzerEngine) -> None:
             \b
             """.strip(),
         ),
+        Pattern(
+            name="numbered_broadway",
+            score=0.95,
+            regex=r"\b\d{1,6}\s+(?:Broadway|Boardwalk|Commons|Plaza|Promenade|Esplanade|Mall|Galleria|Highway|Freeway|Turnpike|Causeway|Expressway|Bypass)\b",
+        ),
     ]
 
     recognizer = PatternRecognizer(
         supported_entity="US_ADDRESS",
         patterns=us_address_patterns,
         context=["address", "st", "broadway", "street", "ave", "road", "blvd", "apt", "suite", "zip"],
+    )
+    analyzer.registry.add_recognizer(recognizer)
+
+
+def add_ssn_recognizer(analyzer: AnalyzerEngine) -> None:
+    recognizer = PatternRecognizer(
+        supported_entity="US_SSN",
+        patterns=[
+            Pattern("ssn_dashes",  score=0.99, regex=r"\b\d{3}-\d{2}-\d{4}\b"),
+            Pattern("ssn_spaces",  score=0.95, regex=r"\b\d{3} \d{2} \d{4}\b"),
+            Pattern("ssn_bare",    score=0.85, regex=r"\b\d{9}\b"),
+        ],
+        context=["ssn", "social security", "social security number"],
+    )
+    analyzer.registry.add_recognizer(recognizer)
+
+
+_MONTH_FIRSTNAMES = {"april", "may", "june", "august"}
+
+def add_person_pattern_recognizer(analyzer: AnalyzerEngine) -> None:
+    """Catch month-name firstnames before a Title-Case surname.
+
+    Requiring the surname to be Title-Case (4+ chars) means lowercase prose
+    like 'may be' or 'june follow-up' is never matched.
+    """
+    # Surname: 4+ chars, Title-Case — rules out short words like "Be", "In", "Per"
+    surname = r"[A-Z][a-z'-]{3,}"
+    month_firstname = r"(?:April|May|June|August)"
+    recognizer = PatternRecognizer(
+        supported_entity="PERSON",
+        patterns=[
+            Pattern("month_as_firstname", score=0.92,
+                    regex=rf"\b{month_firstname}\s+{surname}\b"),
+        ],
+        context=[
+            "patient", "name", "emergency contact", "next of kin",
+            "guarantor", "referring", "attending", "provider", "author",
+            "signed by", "ordered by", "contact", "subscriber", "insured",
+        ],
     )
     analyzer.registry.add_recognizer(recognizer)
 
@@ -277,9 +326,24 @@ def build_presidio():
 
     add_us_address_recognizer(analyzer)
     add_strict_date_recognizer(analyzer)
+    add_ssn_recognizer(analyzer)
     add_mrn_recognizer(analyzer)
     add_npi_recognizer(analyzer)
     add_insurance_recognizer(analyzer)
+    add_person_pattern_recognizer(analyzer)
+
+    # Extend the existing SpacyRecognizer's context in-place so Presidio's
+    # default entity mappings and settings are preserved.
+    extra_context = [
+        "emergency", "contact", "emergency contact", "next of kin",
+        "guarantor", "subscriber", "insured", "guardian", "parent",
+        "responsible party", "ordered by", "signed by", "referring",
+        "referred", "clinician", "nurse", "staff",
+    ]
+    for rec in analyzer.registry.recognizers:
+        if rec.__class__.__name__ == "SpacyRecognizer":
+            rec.context = list(set((rec.context or []) + extra_context))
+            break
 
     return analyzer
 
@@ -316,12 +380,18 @@ except Exception as exc:
 ALLOWLIST_EXACT = {
     "inc", "llc", "ltd",
     "university", "department",
-    "texas", "california", "lubbock",
+    "texas", "california",
     "usa", "united states", "weeks ago", "months ago", "minutes",
     "date", "date:", "birth", "email", "biographies",
     "dyspnea", "epigastric", "lumbosacral", "lumbo", "musculoskeletal",
+    "tamsulosin", "metformin", "lisinopril", "atorvastatin", "amlodipine",
+    "omeprazole", "metoprolol", "albuterol", "gabapentin", "sertraline",
+    "losartan", "furosemide", "pantoprazole", "escitalopram", "hydrochlorothiazide",
     "the", "is", "in", "ist", "name", "medical center", "ED", "ER", "hospital", "clinic",
     "PO", "SQ", "SpO2", "address",
+
+    "st", "rd", "ave", "blvd", "ln", "ct", "pl", "pkwy", "ter", "cir", "sq", "way",
+
     "united", "healthcare", "united healthcare",
     "medicare", "medicaid", "aetna", "cigna", "humana", "anthem",
     "insurance", "tricare", "molina", "primera",
@@ -330,6 +400,21 @@ ALLOWLIST_EXACT = {
     "introduction", "appendix", "glossary", "guide", "manual",
     "report", "form", "document", "section", "note", "notice",
     "instructions", "information", "disclaimer", "confidential",
+    # medical document section headers
+    "physical exam", "physical examination", "physical", "exam", "examination",
+    "vital signs", "vital", "signs", "chief complaint", "chief",
+    "history", "review", "systems", "systems review", "review of systems",
+    "assessment", "plan", "impression", "findings", "results",
+    "diagnosis", "diagnoses", "treatment", "procedure", "procedures",
+    "medications", "medication", "allergies", "allergy",
+    "social history", "family history", "past history", "medical history",
+    "surgical history", "history of present illness", "present illness",
+    "laboratory", "radiology", "imaging", "pathology",
+    "discharge", "admission", "follow", "followup", "follow up",
+    "objective", "subjective", "recommendation", "recommendations",
+    "signature", "signed", "attending", "resident", "intern",
+    "consultation", "referral", "orders", "order",
+    "eliquis"
 }
 
 DATE_PATTERNS = [
@@ -358,6 +443,16 @@ def should_keep_term(term: str) -> bool:
     if len(t) == 1 and t.isalpha():
         return False
     return True
+
+
+_MEDICAL_SUFFIXES = re.compile(
+    r"(oscopy|ectomy|otomy|ostomy|plasty|graphy|gram|ology|itis|osis|pathy|therapy|tomy|scopy|centesis|rrhaphy|pexy|desis|lysis|genesis|trophy|ulosin|emia|uria|algia|plegia|paresis|phobia|philia|mania)$",
+    re.IGNORECASE,
+)
+
+
+def _is_medical_term(word: str) -> bool:
+    return bool(_MEDICAL_SUFFIXES.search(word.strip()))
 
 
 def is_allowlisted(s: str) -> bool:
@@ -399,7 +494,11 @@ def is_whole_word_span(text: str, start: int, end: int) -> bool:
 
 
 def _norm_token(s: str) -> str:
-    return re.sub(r"^[^\w]+|[^\w]+$", "", (s or "")).lower()
+    s = (s or "").strip()
+    # If a label is fused with a name via colon (e.g. "Contact:Elaine"), take only the part after the last colon
+    if ":" in s:
+        s = s.split(":")[-1]
+    return re.sub(r"^[^\w]+|[^\w]+$", "", s).lower()
 
 
 def _normalize_names(names: list[str]) -> list[str]:
@@ -423,6 +522,9 @@ def _clean_person_tokens(raw: str) -> list[str]:
         if not clean:
             continue
         if is_allowlisted(clean):
+            continue
+
+        if _is_medical_term(clean):
             continue
 
         if len(clean) == 1 and clean.isalpha():
@@ -471,6 +573,8 @@ def _looks_like_header_name(line: str) -> bool:
         if not re.match(r"^[A-Z][a-z.'-]*$", p):
             return False
         if is_allowlisted(p):
+            return False
+        if _is_medical_term(p):
             return False
 
     return True
@@ -689,11 +793,25 @@ def extract_pii_terms_from_pdf(
             source = getattr(r, "source", "presidio")
             snippet = repr(raw[:60])
 
-            if not is_whole_word_span(page_text, r.start, r.end):
+            # Trim trailing whitespace from the span before the whole-word check
+            # so that patterns ending with optional whitespace (e.g. addresses)
+            # aren't rejected because the next character is a digit/letter.
+            trimmed_end = r.end - (len(raw) - len(raw.rstrip()))
+            if not is_whole_word_span(page_text, r.start, trimmed_end):
                 _log(f"  [SKIP not-whole-word] {r.entity_type} score={r.score:.2f} src={source} raw={snippet}")
                 continue
 
+            # For PERSON spans that cross a newline, only keep the first line —
+            # cross-line spans like "John Smith\nGuarantor" can't be matched in the PDF.
+            if r.entity_type == "PERSON" and "\n" in raw:
+                raw = raw.split("\n")[0].strip()
+                if not raw:
+                    _log(f"  [SKIP empty-after-newline-trim] PERSON score={r.score:.2f} src={source}")
+                    continue
+
             raw = re.sub(r"\s+", " ", raw).strip()
+            # Strip bullet/dash list markers that PDF extraction sometimes attaches to names
+            raw = re.sub(r"^[•·▪▸◦‣⁃–—\s]+|[•·▪▸◦‣⁃–—\s]+$", "", raw).strip()
 
             if not raw or len(raw) > max_term_len:
                 _log(f"  [SKIP len] {r.entity_type} score={r.score:.2f} src={source} raw={snippet}")
@@ -702,6 +820,24 @@ def extract_pii_terms_from_pdf(
             if is_allowlisted(raw):
                 _log(f"  [SKIP allowlist] {r.entity_type} score={r.score:.2f} src={source} raw={repr(raw)}")
                 continue
+
+            if r.entity_type == "PERSON" and _is_medical_term(raw.split()[-1]):
+                _log(f"  [SKIP medical-term] {r.entity_type} score={r.score:.2f} src={source} raw={repr(raw)}")
+                continue
+
+            # Block standalone month names detected as PERSON (e.g. spaCy tagging "May")
+            if r.entity_type == "PERSON" and raw.strip().lower() in _MONTH_FIRSTNAMES:
+                _log(f"  [SKIP standalone-month] {r.entity_type} score={r.score:.2f} src={source} raw={repr(raw)}")
+                continue
+
+            # Block month-word phrases that aren't proper names (e.g. "may include", "June follow-up")
+            # Real names like "April Murphy" have ALL words Title-Cased.
+            if r.entity_type == "PERSON":
+                words = raw.strip().split()
+                if words and words[0].lower() in _MONTH_FIRSTNAMES:
+                    if not all(w[0].isupper() for w in words if w and w[0].isalpha()):
+                        _log(f"  [SKIP month-not-titlecase] {r.entity_type} score={r.score:.2f} src={source} raw={repr(raw)}")
+                        continue
 
             if r.entity_type == "NPI":
                 npi_match = re.search(r'\d{10}', raw)
