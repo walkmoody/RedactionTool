@@ -194,17 +194,17 @@ def add_us_address_recognizer(analyzer: AnalyzerEngine) -> None:
         Pattern(
             name="street_with_cardinal_direction",
             score=0.92,
-            regex=r"\b\d{1,5}\s+(?:North|South|East|West|N|S|E|W|NE|NW|SE|SW)\.?\s+(?:\d{1,3}(?:st|nd|rd|th)|[A-Za-z][A-Za-z.'-]*)(?:\s+[A-Za-z][A-Za-z.'-]*){0,3}\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Sq|Square)\.?(?:,|\b)",
+            regex=r"\b\d{1,5}\s+(?:North|South|East|West|N|S|E|W|NE|NW|SE|SW)\.?\s+(?:\d{1,3}(?:st|nd|rd|th)|[A-Za-z][A-Za-z.'-]*)(?:\s+[A-Za-z][A-Za-z.'-]*){0,3}\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Plaza|Parkway|Pl|Place|Ter|Terrace|Sq|Square)\.?(?:,|\b)",
         ),
         Pattern(
             name="directional_led_street",
             score=0.90,
-            regex=r"\b(?:North|South|East|West)\s+(?:\d{1,3}(?:st|nd|rd|th)|[A-Za-z][A-Za-z.'-]*)(?:\s+[A-Za-z][A-Za-z.'-]*){0,3}\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Sq|Square)\.?(?:,|\b)",
+            regex=r"\b(?:North|South|East|West)\s+(?:\d{1,3}(?:st|nd|rd|th)|[A-Za-z][A-Za-z.'-]*)(?:\s+[A-Za-z][A-Za-z.'-]*){0,3}\s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Plaza|Pl|Place|Ter|Terrace|Sq|Square)\.?(?:,|\b)",
         ),
         Pattern(
             name="us_address_full",
             score=0.85,
-            regex=r"\b\d{1,6}(?:\s+[\w.'-]+){1,10}\s+(?:St|Street|Square|Hall|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Broadway|Place|Ter|Terrace|Center)\b(?:\s*,?\s*(?:Apt|Apartment|Unit|Ste|Suite|#)\s*\w+)?(?:\s*,?\s*[A-Za-z .'-]{2,30})?(?:\s*,?\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))?(?:\s+\d{5}(?:-\d{4})?)?\b",
+            regex=r"\b\d{1,6}(?:\s+[\w.'-]+){1,12}\s+(?:St|Street|Square|Hall|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Plaza|Parkway|Pl|Broadway|Place|Ter|Terrace|Center)\b(?:\s*,?\s*(?:Apt|Apartment|Unit|Ste|Suite|#)\s*\w+)?(?:\s*,?\s*[A-Za-z .'-]{2,30})?(?:\s*,?\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))?(?:\s+\d{5}(?:-\d{4})?)?\b",
         ),
         Pattern(
             name="us_address_numbered_street",
@@ -217,7 +217,7 @@ def add_us_address_recognizer(analyzer: AnalyzerEngine) -> None:
             (?:\d{1,5}(?:st|nd|rd|th)\b|[\w.'-]+)
             (?:\s+[\w.'-]+){0,5}
             \s+
-            (?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Broadway|Center|Sq|Square)\.?
+            (?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Plaza|Parkway|Pl|Place|Ter|Terrace|Broadway|Center|Sq|Square)\.?
             (?:\s*,?\s*(?:Apt|Apartment|Unit|Ste|Suite|#)\s*[\w-]+)?
             (?:\s*,?\s*[A-Za-z .'-]{2,30})?
             (?:\s*,?\s*(?:AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY))?
@@ -239,7 +239,7 @@ def add_us_address_recognizer(analyzer: AnalyzerEngine) -> None:
             (?:\d{1,5}\s*(?:st|nd|rd|th)\b|[\w.'-]+)
             (?:\s+[\w.'-]+){0,4}
             \s+
-            (?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Broadway|Center|Sq|Square)\.?
+            (?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Plaza|Parkway|Pl|Place|Ter|Terrace|Broadway|Center|Sq|Square)\.?
             \b
             """.strip(),
         ),
@@ -254,7 +254,7 @@ def add_us_address_recognizer(analyzer: AnalyzerEngine) -> None:
             (?:\d{1,5}(?:st|nd|rd|th)\b|[\w.'-]+)
             (?:\s+[\w.'-]+){0,3}
             (?:
-                \s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Parkway|Pl|Place|Ter|Terrace|Sq|Square)\.?
+                \s+(?:St|Street|Ave|Avenue|Rd|Road|Blvd|Boulevard|Ln|Lane|Dr|Drive|Ct|Court|Cir|Circle|Way|Pkwy|Plaza|Parkway|Pl|Place|Ter|Terrace|Sq|Square)\.?
             )?
             \b
             """.strip(),
@@ -274,6 +274,18 @@ def add_us_address_recognizer(analyzer: AnalyzerEngine) -> None:
     analyzer.registry.add_recognizer(recognizer)
 
 
+def add_phone_recognizer(analyzer: AnalyzerEngine) -> None:
+    recognizer = PatternRecognizer(
+        supported_entity="PHONE_NUMBER",
+        patterns=[
+            Pattern("us_phone_parens",  score=0.75, regex=r"\(\d{3}\)\s*\d{3}[-.\s]\d{4}\b"),
+            Pattern("us_phone_dashes",  score=0.65, regex=r"\b\d{3}[-]\d{3}[-]\d{4}\b"),
+            Pattern("us_phone_country", score=0.80, regex=r"\+1[\s\-]?\(?\d{3}\)?\s*\d{3}[-.\s]\d{4}\b"),
+        ],
+    )
+    analyzer.registry.add_recognizer(recognizer)
+
+
 def add_ssn_recognizer(analyzer: AnalyzerEngine) -> None:
     recognizer = PatternRecognizer(
         supported_entity="US_SSN",
@@ -286,15 +298,8 @@ def add_ssn_recognizer(analyzer: AnalyzerEngine) -> None:
     )
     analyzer.registry.add_recognizer(recognizer)
 
-
-_MONTH_FIRSTNAMES = {"april", "may", "june", "august"}
-
 def add_person_pattern_recognizer(analyzer: AnalyzerEngine) -> None:
-    """Catch month-name firstnames before a Title-Case surname.
 
-    Requiring the surname to be Title-Case (4+ chars) means lowercase prose
-    like 'may be' or 'june follow-up' is never matched.
-    """
     # Surname: 4+ chars, Title-Case — rules out short words like "Be", "In", "Per"
     surname = r"[A-Z][a-z'-]{3,}"
     month_firstname = r"(?:April|May|June|August)"
@@ -326,6 +331,7 @@ def build_presidio():
     add_us_address_recognizer(analyzer)
     add_strict_date_recognizer(analyzer)
     add_ssn_recognizer(analyzer)
+    add_phone_recognizer(analyzer)
     add_mrn_recognizer(analyzer)
     add_npi_recognizer(analyzer)
     add_insurance_recognizer(analyzer)
@@ -342,7 +348,8 @@ def build_presidio():
     for rec in analyzer.registry.recognizers:
         if rec.__class__.__name__ == "SpacyRecognizer":
             rec.context = list(set((rec.context or []) + extra_context))
-            break
+        if getattr(rec, "supported_entities", None) == ["PHONE_NUMBER"]:
+            rec.context = list(set((rec.context or []) + ["tel", "telephone", "fax", "mobile", "cell", "contact"]))
 
     return analyzer
 
@@ -377,16 +384,25 @@ except Exception as exc:
 ############################################################################################
 
 ALLOWLIST_EXACT = {
-    "inc", "llc", "ltd", "md",
+    "inc", "llc", "ltd", "md", "at", "needs",
     "university", "department",
-    "texas", "california",
+    "texas", "california", "student"
     "usa", "united", "states", "united states", "united states of america",
     "new york", "new jersey", "new mexico", "new hampshire",
     "west virginia", "north carolina", "south carolina",
     "north dakota", "south dakota", "rhode island",
     "weeks ago", "months ago", "minutes",
     "date", "date:", "birth", "email", "biographies",
-    "dyspnea", "epigastric", "lumbosacral", "lumbo", "musculoskeletal",
+    "dyspnea", "epigastric", "lumbosacral", "lumbo", "musculoskeletal", "dysthymic",
+    "dysthymia", "dysphoria", "dysphagia", "dysarthria", "dysuria", "dyslipidemia",
+    "metoprolol", "metorolol", "glipizide", "morphine", "oxycodone", "hydrocodone",
+    "ferrous", "sulfate", "ferrous sulfate", "ferric", "iron", "folic", "folate",
+    "leopold", "leopold maneuver",
+    "ibuprofen", "acetaminophen", "naproxen", "diltiazem", "verapamil", "digoxin",
+    "mmse", "gcs", "moca", "phq", "gad", "bmi", "ekg", "ecg", "mri", "ct", "xray",
+    "orthopedist", "cardiologist", "neurologist", "radiologist", "hospitalist",
+    "pulmonologist", "rheumatologist", "endocrinologist", "nephrologist", "oncologist",
+    "bone", "mineral", "density", "calcium", "phosphorus", "potassium", "sodium",
     "tamsulosin", "metformin", "lisinopril", "atorvastatin", "amlodipine",
     "omeprazole", "metoprolol", "albuterol", "gabapentin", "sertraline",
     "losartan", "furosemide", "pantoprazole", "escitalopram", "hydrochlorothiazide",
@@ -397,10 +413,10 @@ ALLOWLIST_EXACT = {
     "the", "is", "in", "ist", "name", "medical center", "ED", "ER", "hospital", "clinic",
     "PO", "SQ", "SpO2", "address",
 
-    "st", "rd", "ave", "blvd", "ln", "ct", "pl", "pkwy", "ter", "cir", "sq", "way",
+    "st", "rd", "ave", "blvd", "ln", "ct", "pl", "pkwy", "ter", "cir", "sq", "way", "mg",
 
     "united", "healthcare", "united healthcare",
-    "medicare", "medicaid", "aetna", "cigna", "humana", "anthem",
+    "medicare", "medicaid", "aetna", "cigna", "humana", "anthem", "aetna student health"
     "insurance", "tricare", "molina", "primera",
     "quick reference", "quick", "reference",
     "table of contents", "executive summary", "summary", "overview",
@@ -460,6 +476,9 @@ _MEDICAL_SUFFIXES = re.compile(
 
 def _is_medical_term(word: str) -> bool:
     return bool(_MEDICAL_SUFFIXES.search(word.strip()))
+
+
+_MONTH_FIRSTNAMES = {"april", "may", "june", "august"}
 
 
 def is_allowlisted(s: str) -> bool:
@@ -544,7 +563,6 @@ def _clean_person_tokens(raw: str) -> list[str]:
         out.append(clean)
     return out
 
-
 def _looks_like_header_name(line: str) -> bool:
     line = re.sub(r"\s+", " ", (line or "")).strip()
     if not line:
@@ -574,6 +592,10 @@ def _looks_like_header_name(line: str) -> bool:
     if not parts:
         return False
 
+    # Require at least 2 words — single words are section headers, not names
+    if len(parts) < 2:
+        return False
+
     for p in parts:
         if len(p) < 2:
             return False
@@ -583,8 +605,29 @@ def _looks_like_header_name(line: str) -> bool:
             return False
         if _is_medical_term(p):
             return False
-
     return True
+
+_LABEL_NAME_RE = re.compile(
+    # Label must be at line start or after newline (case-insensitive label only)
+    r"(?:^|\n)\s*(?i:patient(?:\s+name)?|provider|guarantor|guardian|parent(?:/guardian)?|"
+    r"next\s+of\s+kin|emergency\s+contact|subscriber|insured|attending|referring|"
+    r"ordered\s+by|signed\s+by|clinician|nurse|author|evaluator|therapist|"
+    r"responsible\s+party)\s*[:/]\s*"
+    # Name group: Title-Case words (supports hyphenated names like Soo-Yeon)
+    r"((?:[A-Z][a-z]*(?:-[A-Z][a-z]*)*)(?:[^\S\n]+[A-Z][a-z]*(?:-[A-Z][a-z]*)*){0,3})",
+    re.MULTILINE,
+)
+
+
+def extract_label_name_candidates(page_text: str) -> list[str]:
+    """Extract names that immediately follow known PII label words."""
+    out = []
+    for m in _LABEL_NAME_RE.finditer(page_text):
+        name = m.group(1).strip()
+        if not name or is_allowlisted(name) or _is_medical_term(name.split()[-1]):
+            continue
+        out.append(name)
+    return _normalize_names(out)
 
 
 def extract_header_name_candidates(page_text: str, max_lines: int = 8) -> list[str]:
@@ -784,8 +827,10 @@ def extract_pii_terms_from_pdf(
 
     for page_num, page in enumerate(doc, start=1):
         page_text = page.get_text("text") or ""
+        
+        page_text = re.sub(r"\s*\|\s*", "\n", page_text)
 
-        # hybrid detector: old code + transformer
+        # hybrid detector: presidio + transformer
         results = detect_pii_spans_hybrid(page_text, entities=entities, default_min=min_score, USE_TRANSFORMER=use_transformer)
 
         _log(f"\n--- Page {page_num} ({len(results)} detections) ---")
@@ -797,22 +842,22 @@ def extract_pii_terms_from_pdf(
                 _log(f"  [HEADER]  term={h!r}")
             terms.extend(header_candidates)
 
+            label_candidates = extract_label_name_candidates(page_text)
+            for h in label_candidates:
+                _log(f"  [LABEL]  term={h!r}")
+            terms.extend(label_candidates)
+
         for r in results:
             raw = page_text[r.start:r.end]
             source = getattr(r, "source", "presidio")
             snippet = repr(raw[:60])
 
-            # Trim trailing whitespace from the span before the whole-word check
-            # so that patterns ending with optional whitespace (e.g. addresses)
-            # aren't rejected because the next character is a digit/letter.
             trimmed_end = r.end - (len(raw) - len(raw.rstrip()))
             if not is_whole_word_span(page_text, r.start, trimmed_end):
                 _log(f"  [SKIP not-whole-word] {r.entity_type} score={r.score:.2f} src={source} raw={snippet}")
                 continue
 
-            # For spans that cross a newline, only keep the first line —
-            # cross-line spans can't be matched as a single block in the PDF.
-            if "\n" in raw:
+            if "\n" in raw and r.entity_type != "STRICT_DATE":
                 raw = raw.split("\n")[0].strip()
                 if not raw:
                     _log(f"  [SKIP empty-after-newline-trim] {r.entity_type} score={r.score:.2f} src={source}")
@@ -845,7 +890,9 @@ def extract_pii_terms_from_pdf(
             if r.entity_type == "PERSON":
                 words = raw.strip().split()
                 if words and words[0].lower() in _MONTH_FIRSTNAMES:
-                    if not all(w[0].isupper() for w in words if w and w[0].isalpha()):
+                    has_digit_word = any(w and w[0].isdigit() for w in words)
+                    not_all_titlecase = not all(w[0].isupper() for w in words if w and w[0].isalpha())
+                    if has_digit_word or not_all_titlecase:
                         _log(f"  [SKIP month-not-titlecase] {r.entity_type} score={r.score:.2f} src={source} raw={repr(raw)}")
                         continue
 
@@ -872,9 +919,11 @@ def extract_pii_terms_from_pdf(
             if r.entity_type == "INSURANCE":
                 # Strip insurer name label — keep only the ID/number portion
                 id_match = re.search(
-                    r'(?:Medicare|United\s*Healthcare|Aetna|Cigna|Humana|BlueCross|Blue\s+Cross|Blue\s+Shield|Anthem|Molina|Centene|WellCare|Tricare|Medicaid|Insurance|Ins|Policy|Member\s*ID|Member\s*#|Plan\s*ID)\s*[:#]?\s*([A-Z0-9]{1,4}(?:-[A-Z0-9]{2,12})+|[A-Z0-9]{4,})',
-                    raw, re.IGNORECASE,
+                    r'(?:Medicare(?:\s*ID)?|United\s*Healthcare|Aetna|Cigna|Humana|Blue\s*Cross(?:\s*Blue\s*Shield)?|Anthem|Molina|Centene|WellCare|Tricare|Medicaid|Insurance|Ins|Policy|Member\s*(?:ID|#)|Plan\s*ID)\s*[:#]?\s*([A-Z0-9]{2,}(?:\s*-\s*[A-Z0-9]{2,})+|(?=[A-Z0-9]*\d)[A-Z0-9]{5,})',
+                    raw,
+                    re.IGNORECASE,
                 )
+
                 if id_match:
                     _log(f"  [KEEP] INSURANCE score={r.score:.2f} src={source} raw={repr(raw)} → term={repr(id_match.group(1))}")
                     terms.append(id_match.group(1))
@@ -893,6 +942,10 @@ def extract_pii_terms_from_pdf(
                 continue
 
             if r.entity_type == "US_ADDRESS":
+                # Skip time strings like "30 pm", "00 am"
+                if re.fullmatch(r"\d{1,2}\s*[aApP][mM]", raw.strip()):
+                    _log(f"  [SKIP time-string] US_ADDRESS score={r.score:.2f} src={source} raw={repr(raw)}")
+                    continue
                 addr_tokens = [_norm_token(t) for t in raw.split() if _norm_token(t)]
                 if addr_tokens:
                     term = " ".join(addr_tokens)
@@ -982,6 +1035,27 @@ def _find_name_rects_in_line(line_words, target_lower: str):
     return rects
 
 
+def _find_phrase_rects_crossline(page, phrase: str) -> list[fitz.Rect]:
+    """Match a phrase across line boundaries by comparing normalized token sequences."""
+    target_tokens = [t for t in (_norm_token(x) for x in re.split(r"\s+", phrase.strip())) if t]
+    if not target_tokens:
+        return []
+
+    all_words = sorted(page.get_text("words"), key=lambda w: (w[5], w[6], w[7]))
+    cleaned = [(_norm_token(w[4]), fitz.Rect(w[0], w[1], w[2], w[3])) for w in all_words]
+    cleaned = [(t, r) for t, r in cleaned if t]
+
+    n = len(target_tokens)
+    rects = []
+    for i in range(len(cleaned) - n + 1):
+        if [t for t, _ in cleaned[i:i + n]] == target_tokens:
+            combined = cleaned[i][1]
+            for _, r in cleaned[i + 1:i + n]:
+                combined |= r
+            rects.append(combined)
+    return rects
+
+
 def redact_pdf_names(
     input_pdf: str | Path,
     output_pdf: str | Path,
@@ -1067,6 +1141,68 @@ def redact_pdf_names(
         "output": str(output_pdf),
     }
 
+
+def redact_pdf_names_term(
+    input_pdf: str | Path,
+    output_pdf: str | Path,
+    names: list[str],
+    *,
+    case_insensitive: bool = True,
+    redact_color_rgb: tuple[int, int, int] = (0, 0, 0),
+) -> dict:
+    input_pdf = Path(input_pdf)
+    output_pdf = Path(output_pdf)
+
+    if not input_pdf.exists():
+        raise FileNotFoundError(f"Input PDF not found: {input_pdf}")
+
+    names = _normalize_names(names)
+
+    if not names:
+        raise ValueError("No names provided to redact.")
+
+    doc = fitz.open(str(input_pdf))
+
+    total_matches = 0
+    names_found: dict[str, int] = {n: 0 for n in names}
+    fill = tuple(c / 255 for c in redact_color_rgb)
+
+    for page in doc:
+        for name in names:
+            name = name.strip()
+            if not name:
+                continue
+
+            if " " in name:
+                rects = _find_phrase_rects_crossline(page, name)
+            else:
+                rects = _find_exact_token_rects(page, name)
+
+            for r in rects:
+                rr = fitz.Rect(r)
+                rr.x0 -= 0.5
+                rr.y0 -= 0.1
+                rr.x1 += 0.5
+                rr.y1 += 0.1
+
+                page.add_redact_annot(rr, fill=fill)
+                total_matches += 1
+                names_found[name] += 1
+
+    for page in doc:
+        page.apply_redactions()
+
+    pages_count = doc.page_count
+    output_pdf.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(str(output_pdf))
+    doc.close()
+
+    return {
+        "pages": pages_count,
+        "total_matches": total_matches,
+        "names_found": {k: v for k, v in names_found.items() if v > 0},
+        "output": str(output_pdf),
+    }
 
 ############################################################################################
 # MAIN

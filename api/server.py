@@ -17,10 +17,9 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-# Ensure project root is on the path so redact.py is importable
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from redact import DEFAULT_ENTITIES, extract_pii_terms_from_pdf, redact_pdf_names, _log, TOKENIZER, MODEL, _DEVICE, TRANSFORMER_READY, ANALYZER  # noqa: E402
+from redact import DEFAULT_ENTITIES, extract_pii_terms_from_pdf, redact_pdf_names, redact_pdf_names_term, _log, TOKENIZER, MODEL, _DEVICE, TRANSFORMER_READY, ANALYZER  # noqa: E402
 from contextlib import asynccontextmanager
 import torch
 
@@ -197,7 +196,7 @@ async def redact_terms(
         output_path = tmp / f"{stem}_REDACTED.pdf"
         input_path.write_bytes(await file.read())
 
-        redact_pdf_names(
+        redact_pdf_names_term(
             input_pdf=input_path,
             output_pdf=output_path,
             names=term_list,

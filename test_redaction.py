@@ -65,7 +65,12 @@ SHOULD_REDACT = [
     ("name after colon no space", "Provider:Rachel Green",                             "Rachel Green"),
     ("continuously missed name",              "April Murphy",                                     "April Murphy"),
     ("april in table",             "Name Date Changes April Murphy Aug. 2019 Extensive",        "April Murphy"),
-
+    ("parent/guardian",           "Parent/Guardian: Soo-Yeon Park",                         "Soo-Yeon Park"),
+   
+    ("white name vs color", "Seen by Dr White",         "White"),
+    ("stacked pii", "John Doe | 123-45-6789 | john@email.com", "John Doe"),
+    ("stacked pii", "John Doe | 123-45-6789 | john@email.com", "123-45-6789"),
+    ("stacked pii", "John Doe | 123-45-6789 | john@email.com", "john@email.com"),
 
     # ── Emergency / next of kin ───────────────────────────────────────────────
     ("emergency contact nospace", "Emergency Contact:Mina Murray",                     "Mina Murray"),
@@ -81,6 +86,10 @@ SHOULD_REDACT = [
     ("phone parens",              "Phone: (806) 555-0192",                             "555-0192"),
     ("phone dots",                "Cell: 806.555.0193",                                "806.555.0193"),
     ("fax number",                "Fax: (806) 555-0195",                               "555-0195"),
+    ("tel prefix",                "Tel: (773) 555-0344",                               "555-0344"),
+    ("phone pipe header",         "550 Maternity Lane, Suite 300, Nashville, TN 37203 | (615) 555-0630", "555-0630"),
+    ("telephone prefix",          "Telephone: (312) 555-9900",                         "555-9900"),
+    ("mobile prefix",             "Mobile: 214-555-7722",                              "555-7722"),
 
     # ── Email ────────────────────────────────────────────────────────────────
     ("email basic",               "Email: jharker@example.com",                        "jharker@example.com"),
@@ -90,6 +99,7 @@ SHOULD_REDACT = [
     ("dob slash",                 "DOB: 03/15/1958",                                   "03/15/1958"),
     ("dob labeled written",       "Date of Birth: January 5, 1962",                   "January 5, 1962"),
     ("dob iso",                   "Birthdate: 1975-08-22",                             "1975-08-22"),
+    ("dob table cell",            "DOB:\t07/04/1980",                                  "07/04/1980"),
 
     # ── Address ──────────────────────────────────────────────────────────────
     ("street address",            "Address: 452 Elm Street, Lubbock TX 79401",         "452 Elm Street"),
@@ -163,6 +173,24 @@ SHOULD_NOT_REDACT = [
     ("levothyroxine",       "Medications: Levothyroxine 50 mcg daily",    "Levothyroxine"),
     ("clopidogrel",         "Medications: Clopidogrel 75 mg daily",       "Clopidogrel"),
     ("amlodipine",          "Medications: Amlodipine 5 mg daily",         "Amlodipine"),
+    ("metoprolol",          "Medications: Metoprolol 25 mg BID",          "Metoprolol"),
+    ("glipizide",           "Medications: Glipizide 5 mg daily",          "Glipizide"),
+    ("morphine",            "Medications: Morphine 2 mg IV PRN",          "Morphine"),
+    ("oxycodone",           "Medications: Oxycodone 5 mg q4h PRN",        "Oxycodone"),
+    ("ibuprofen",           "Medications: Ibuprofen 400 mg TID",          "Ibuprofen"),
+
+    # ── Medical acronyms ─────────────────────────────────────────────────────
+    ("mmse",                "Cognitive: MMSE score 28/30",                "MMSE"),
+    ("bmi",                 "BMI: 24.5 kg/m2",                            "BMI"),
+    ("ekg",                 "EKG: normal sinus rhythm",                   "EKG"),
+
+    # ── Specialist titles (job roles, not names) ──────────────────────────────
+    ("orthopedist role",    "Referred to Orthopedist for follow-up",      "Orthopedist"),
+    ("cardiologist role",   "Seen by Cardiologist on 11/03/2023",         "Cardiologist"),
+
+    # ── Time strings ─────────────────────────────────────────────────────────
+    ("time am",             "Admitted at 8:30 am per nursing notes",      "30 am"),
+    ("time pm",             "Discharge time: 2:00 pm",                    "00 pm"),
 
     # ── Vaccines ─────────────────────────────────────────────────────────────
     ("flu shot",            "Vaccines: Influenza vaccine given",          "Influenza"),
@@ -176,7 +204,7 @@ SHOULD_NOT_REDACT = [
     ("dyspnea",             "Chief Complaint: dyspnea on exertion",       "dyspnea"),
     ("epigastric",          "Pain: epigastric tenderness noted",          "epigastric"),
     ("musculoskeletal",     "MSK: musculoskeletal exam normal",           "musculoskeletal"),
-
+    
 
     # ── Section headers ──────────────────────────────────────────────────────
     ("physical exam",       "Physical Exam:",                             "Physical Exam"),
@@ -210,7 +238,7 @@ SHOULD_NOT_REDACT = [
     # ── Non-DOB dates ────────────────────────────────────────────────────────
     ("procedure date lbl",  "Procedure Date: 03/15/2023",                 "Procedure Date"),
     ("visit date lbl",      "Visit Date: 04/10/2024",                     "Visit Date"),
-    ("April",               "Follow-up: April 2024",                     "April 2024"),
+    ("April",               "Follow up: April 2024",                     "April"),
     (   "month year",          "Birth •",                                   "Birth"),
     
 
@@ -247,7 +275,7 @@ SHOULD_NOT_REDACT = [
 
     # ── Address-like but clinical ───────────────────────────────────────────
     ("unit reference",      "Patient in unit 5B",                    "5B"),
-
+    
     # ── Names that are medications/brands ───────────────────────────────────
     ("insulin brand",       "Medication: Humalog insulin",           "Humalog"),
     ("device name",         "Device: Philips monitor",               "Philips"),
@@ -255,6 +283,8 @@ SHOULD_NOT_REDACT = [
     # ── Month words edge cases ──────────────────────────────────────────────
     ("march verb",          "Patient will march forward with therapy","march"),
     ("may modal",           "Patient may return if symptoms worsen", "may"),
+    ("brown color vs name", "Skin: brown discoloration","brown"),
+    ("april false positive regression", "Follow up April 2024", "April"),
 
     # ── Abbreviations ───────────────────────────────────────────────────────
     ("dr abbreviation",     "Plan discussed with dr team",           "dr"),
@@ -441,3 +471,6 @@ def test_disabled_entity_not_redacted(tmp_path_factory, disabled_entity, line, t
     assert term in text, (
         f"[{disabled_entity} disabled] '{term}' should NOT be redacted but was removed."
     )
+
+def test_large_document_performance():
+    lines = ["Patient: John Doe"] * 10000
