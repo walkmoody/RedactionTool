@@ -102,7 +102,7 @@ export class AppComponent {
     this.files.update(f => [...f]);
 
     const formData = new FormData();
-    const excludedList = this.exclusions.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    const excludedList = this.parseExclusions(this.exclusions);
     formData.append('file', fileItem.file);
     formData.append('entities', JSON.stringify(selectedEntities));
     formData.append('exclusions', JSON.stringify(excludedList));
@@ -210,6 +210,17 @@ export class AppComponent {
             }
           });
       });
+  }
+
+  parseExclusions(input: string): string[] {
+    const results: string[] = [];
+    const pattern = /"([^"]+)"|([^,]+)/g;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(input)) !== null) {
+      const value = (match[1] ?? match[2]).trim();
+      if (value) results.push(value);
+    }
+    return results;
   }
 
   truncateName(name: string, max = 23): string {

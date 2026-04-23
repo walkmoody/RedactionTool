@@ -12,6 +12,7 @@ import json
 import sys
 import tempfile
 from pathlib import Path
+import re as _re
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -68,7 +69,7 @@ async def redact(
     ),
     exclusions: str = Form(
         default="[]",
-        description="JSON array oxxf names to exclude from redaction",
+        description="JSON array of names to exclude from redaction",
     ),
 ) -> FileResponse:
     print(f"Received file: {file.filename} with entities: {entities}")
@@ -97,30 +98,29 @@ async def redact(
 
         input_path.write_bytes(await file.read())
 
-        # ── Parse exclusions ──────────────────────────────────────────────
         try:
             excluded: list[str] = json.loads(exclusions)
+            if not isinstance(excluded, list):
+                excluded = []
         except (ValueError, json.JSONDecodeError):
             excluded = []
+
+        _SAFE_EXCLUSION = _re.compile(r"^[^\x00-\x1f<>`;\|\\]{1,200}$")
+        excluded = [e for e in excluded if isinstance(e, str) and _SAFE_EXCLUSION.match(e.strip())]
+
         excluded_lower = set()
         for e in excluded:
             e = e.strip().lower()
             if not e:
                 continue
             excluded_lower.add(e)
-            for word in e.split():
-                excluded_lower.add(word)
 
-        # ── Run redaction ─────────────────────────────────────────────────
-        use_transformer = set(selected) == set(DEFAULT_ENTITIES)
         pii_terms = extract_pii_terms_from_pdf(
             input_path,
             entities=selected,
             min_score=0.6,
-            use_transformer=use_transformer,
         )
 
-        import re as _re
         def _core(t: str) -> str:
             return _re.sub(r"[^\w\s]", "", t).strip().lower()
 
@@ -132,6 +132,7 @@ async def redact(
             return bool(core_words & excluded_lower)
 
         _log(f"\n=== Exclusion filter (excluded_lower={excluded_lower}) ===")
+        print(f"\n=== Exclusion filter (excluded_lower={excluded_lower}) ===")
         kept, dropped = [], []
         for t in pii_terms:
             if _is_excluded(t):
@@ -140,13 +141,16 @@ async def redact(
                 kept.append(t)
         for t in dropped:
             _log(f"  [EXCLUDED] {repr(t)}")
+            print(f"  [EXCLUDED] {repr(t)}")
         for t in kept:
             _log(f"  [SENDING TO REDACT] {repr(t)}")
+            print(f"  [SENDING TO REDACT] {repr(t)}")
         pii_terms = kept
 
         if not pii_terms:
             _log("  No terms remain after exclusion — returning original file.")
-            # Nothing to redact — return the original file unchanged
+            print("  No terms remain after exclusion — returning original file.")
+
             output_path = input_path
         else:
             redact_pdf_names(
@@ -156,8 +160,6 @@ async def redact(
                 case_insensitive=True,
             )
 
-        # ── Stream back the redacted PDF ──────────────────────────────────
-        # Copy to a stable path outside the temp dir before it's cleaned up
         final_path = Path(tempfile.mktemp(suffix=".pdf"))
         final_path.write_bytes(output_path.read_bytes())
 

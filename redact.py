@@ -32,6 +32,16 @@ DEFAULT_ENTITIES = [
     "INSURANCE",
 ]
 
+MODEL_TO_OLD_ENTITY = {
+    "PERSON": "PERSON",
+    "LOCATION": "LOCATION",
+    "ADDRESS": "US_ADDRESS",
+    "ZIP_CODE": "ZIP_CODE",
+    "CREDIT_CARD": "CREDIT_CARD",
+    "EMAIL_ADDRESS": "EMAIL_ADDRESS",
+    "PHONE_NUMBER": "PHONE_NUMBER",
+}
+
 NAME_TITLES = {"dr", "mr", "mrs", "ms", "miss", "prof", "doctor", "professor"}
 HEADER_TITLES = {"mr", "mrs", "ms", "miss", "dr", "prof", "doctor", "professor"}
 
@@ -46,18 +56,6 @@ MODEL_DIR = "xlmr_pii_openpii_1m/checkpoint-70000"
 TRANSFORMER_MAX_LENGTH = 512
 TRANSFORMER_STRIDE = 128
 TRANSFORMER_SCORE_THRESHOLD = 0.85
-
-# Map trained model entity names to your old pipeline entity names
-MODEL_TO_OLD_ENTITY = {
-    "PERSON": "PERSON",
-    "LOCATION": "LOCATION",
-    "ADDRESS": "US_ADDRESS",
-    "ZIP_CODE": "ZIP_CODE",
-    "CREDIT_CARD": "CREDIT_CARD",
-    "EMAIL_ADDRESS": "EMAIL_ADDRESS",
-    "PHONE_NUMBER": "PHONE_NUMBER",
-}
-
 
 ############################################################################################
 # PRESIDIO SETUP
@@ -710,10 +708,12 @@ def _decode_transformer_chunk(
 
     return spans
 
-
-def detect_pii_spans_transformer(text: str) -> list[SimpleResult]:
+def detect_pii_spans_transformer(text: str, entities: list[str] = DEFAULT_ENTITIES) -> list[SimpleResult]:
     if not TRANSFORMER_READY:
         return []
+
+    # Only keep transformer results whose mapped entity type was requested
+    wanted = set(entities)
 
     encoded = TOKENIZER(
         text,
@@ -746,35 +746,50 @@ def detect_pii_spans_transformer(text: str) -> list[SimpleResult]:
         chunk_spans = _decode_transformer_chunk(offsets, pred_ids[chunk_idx], pred_scores[chunk_idx], id2label)
         all_spans.extend(chunk_spans)
 
-    return all_spans
+    return [s for s in all_spans if s.entity_type in wanted]
 
 
 def merge_pii_results(presidio_results, transformer_results: list[SimpleResult]) -> list[SimpleResult]:
-    merged: list[SimpleResult] = []
-
-    for r in presidio_results:
-        merged.append(SimpleResult(r.start, r.end, r.entity_type, r.score, source="presidio"))
+    # Start with presidio results tagged as presidio-only
+    merged: list[SimpleResult] = [
+        SimpleResult(r.start, r.end, r.entity_type, r.score, source="presidio")
+        for r in presidio_results
+    ]
 
     for t in transformer_results:
         overlap_found = False
         for m in merged:
             overlaps = not (t.end <= m.start or t.start >= m.end)
             if overlaps and t.entity_type == m.entity_type:
+                # Both models agree — expand span, boost confidence
                 m.start = min(m.start, t.start)
                 m.end = max(m.end, t.end)
-                m.score = max(m.score, t.score)
+                avg = (m.score + t.score) / 2
+                m.score = min(1.0, avg + 0.15)
+                m.source = "both"
                 overlap_found = True
                 break
         if not overlap_found:
-            merged.append(t)
+            merged.append(SimpleResult(t.start, t.end, t.entity_type, t.score, source="transformer"))
 
+    for m in merged:
+        _log(f"  [merged/{m.source}] [{m.entity_type}] score={m.score:.2f}")
+    
     merged.sort(key=lambda x: (x.start, x.end))
     return merged
 
 
 def detect_pii_spans_hybrid(text: str, entities=DEFAULT_ENTITIES, default_min=0.85, USE_PRESIDIO=True, USE_TRANSFORMER=True) -> list[SimpleResult]:
     presidio_results = detect_pii_spans(text, entities=entities, default_min=default_min) if USE_PRESIDIO else []
-    transformer_results = detect_pii_spans_transformer(text) if USE_TRANSFORMER else []
+    transformer_results = detect_pii_spans_transformer(text, entities=entities) if USE_TRANSFORMER else []
+
+    _log("  [Presidio]")
+    for r in presidio_results:
+        _log(f"    [{r.entity_type}] score={r.score:.2f} raw={repr(text[r.start:r.end])}")
+    _log("  [Transformer]")
+    for t in transformer_results:
+        _log(f"    [{t.entity_type}] score={t.score:.2f} raw={repr(text[t.start:t.end])}")
+
     return merge_pii_results(presidio_results, transformer_results)
 
 
@@ -830,7 +845,6 @@ def extract_pii_terms_from_pdf(
         
         page_text = re.sub(r"\s*\|\s*", "\n", page_text)
 
-        # hybrid detector: presidio + transformer
         results = detect_pii_spans_hybrid(page_text, entities=entities, default_min=min_score, USE_TRANSFORMER=use_transformer)
 
         _log(f"\n--- Page {page_num} ({len(results)} detections) ---")

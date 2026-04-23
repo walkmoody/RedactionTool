@@ -5,10 +5,11 @@ Creates a synthetic medical PDF, runs the full redaction pipeline, then
 verifies that PII is gone and non-PII is preserved.
 
 Run:
-    conda run -n redact pytest test_redaction.py -v
+    pytest test_redaction.py -v --disable-warnings -W ignore::DeprecationWarning
 """
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -316,6 +317,8 @@ def redacted_text(pipeline, tmp_path_factory):
         redact_pdf_names(input_pdf=input_pdf, output_pdf=output_pdf, names=terms)
     else:
         output_pdf.write_bytes(input_pdf.read_bytes())
+
+    os.system(f"open {output_pdf}")
 
     return _pdf_text(output_pdf)
 
