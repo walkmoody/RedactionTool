@@ -750,7 +750,6 @@ def detect_pii_spans_transformer(text: str, entities: list[str] = DEFAULT_ENTITI
 
 
 def merge_pii_results(presidio_results, transformer_results: list[SimpleResult]) -> list[SimpleResult]:
-    # Start with presidio results tagged as presidio-only
     merged: list[SimpleResult] = [
         SimpleResult(r.start, r.end, r.entity_type, r.score, source="presidio")
         for r in presidio_results
@@ -761,7 +760,6 @@ def merge_pii_results(presidio_results, transformer_results: list[SimpleResult])
         for m in merged:
             overlaps = not (t.end <= m.start or t.start >= m.end)
             if overlaps and t.entity_type == m.entity_type:
-                # Both models agree — expand span, boost confidence
                 m.start = min(m.start, t.start)
                 m.end = max(m.end, t.end)
                 avg = (m.score + t.score) / 2
@@ -878,7 +876,7 @@ def extract_pii_terms_from_pdf(
                     continue
 
             raw = re.sub(r"\s+", " ", raw).strip()
-            # Strip bullet/dash list markers that PDF extraction sometimes attaches to names
+
             raw = re.sub(r"^[•·▪▸◦‣⁃–—\s]+|[•·▪▸◦‣⁃–—\s]+$", "", raw).strip()
 
             if not raw or len(raw) > max_term_len:
@@ -894,13 +892,10 @@ def extract_pii_terms_from_pdf(
                 _log(f"  [SKIP medical-term] {r.entity_type} score={r.score:.2f} src={source} raw={repr(raw)}")
                 continue
 
-            # Block standalone month names detected as PERSON (e.g. spaCy tagging "May")
             if r.entity_type == "PERSON" and raw.strip().lower() in _MONTH_FIRSTNAMES:
                 _log(f"  [SKIP standalone-month] {r.entity_type} score={r.score:.2f} src={source} raw={repr(raw)}")
                 continue
 
-            # Block month-word phrases that aren't proper names (e.g. "may include", "June follow-up")
-            # Real names like "April Murphy" have ALL words Title-Cased.
             if r.entity_type == "PERSON":
                 words = raw.strip().split()
                 if words and words[0].lower() in _MONTH_FIRSTNAMES:
