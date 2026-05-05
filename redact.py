@@ -384,7 +384,7 @@ except Exception as exc:
 ALLOWLIST_EXACT = {
     "inc", "llc", "ltd", "md", "at", "needs",
     "university", "department",
-    "texas", "california", "student"
+    "texas", "california", "student",
     "usa", "united", "states", "united states", "united states of america",
     "new york", "new jersey", "new mexico", "new hampshire",
     "west virginia", "north carolina", "south carolina",
@@ -414,7 +414,7 @@ ALLOWLIST_EXACT = {
     "st", "rd", "ave", "blvd", "ln", "ct", "pl", "pkwy", "ter", "cir", "sq", "way", "mg",
 
     "united", "healthcare", "united healthcare",
-    "medicare", "medicaid", "aetna", "cigna", "humana", "anthem", "aetna student health"
+    "medicare", "medicaid", "aetna", "cigna", "humana", "anthem", "aetna student health",
     "insurance", "tricare", "molina", "primera",
     "quick reference", "quick", "reference",
     "table of contents", "executive summary", "summary", "overview",
