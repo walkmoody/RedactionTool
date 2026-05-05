@@ -317,9 +317,6 @@ def redacted_text(pipeline, tmp_path_factory):
         redact_pdf_names(input_pdf=input_pdf, output_pdf=output_pdf, names=terms)
     else:
         output_pdf.write_bytes(input_pdf.read_bytes())
-
-    os.system(f"open {output_pdf}")
-
     return _pdf_text(output_pdf)
 
 
